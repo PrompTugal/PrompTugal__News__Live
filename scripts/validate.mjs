@@ -4,6 +4,7 @@
 // placeholder check (a seeded site must hold no __SITE_*__ placeholder).
 import { readdirSync, readFileSync, statSync, existsSync } from 'node:fs';
 import { join, dirname, sep } from 'node:path';
+import { createHash } from 'node:crypto';
 const walk = d => readdirSync(d).flatMap(f => { const p = join(d, f); return statSync(p).isDirectory() ? walk(p) : [p]; });
 const problems = [];
 const fail = m => problems.push(m);
@@ -61,10 +62,25 @@ for (const f of files) {
   }
   if (f.endsWith('.js') && /\b(innerHTML|outerHTML|insertAdjacentHTML|document\.write|eval\s*\(|new Function)\b/.test(s)) fail(`${f}: unsafe DOM or eval API`);
 }
-for (const f of ['_site/data/coastline.json', '_site/data/places.json', '_site/data/operator-hosts.json']) {
+for (const f of ['_site/data/coastline.json', '_site/data/places.json', '_site/data/operator-hosts.json', '_site/data/preview-png.json', '_site/preview.json']) {
   try { const d = JSON.parse(readFileSync(f, 'utf8')); if (!d.license || !d.license.url) fail(`${f}: no license link`); } catch { fail(`${f}: missing or not JSON`); }
 }
 if (existsSync('_site/data/coastline.json') && statSync('_site/data/coastline.json').size > 50000) fail('_site/data/coastline.json: over 50 KB');
+// The sites-bar preview (live.b@, 2026-11-18): the SVG holds no script or external reference; the PNG is the recorded one.
+if (existsSync('_site/preview.svg')) {
+  const v = readFileSync('_site/preview.svg', 'utf8');
+  if (v.length > 20000) fail('_site/preview.svg: over 20 KB');
+  if (/<script|<foreignObject|\son[a-z]+\s*=|href\s*=|url\(|@import|<!DOCTYPE|<!ENTITY|<image|<use|<a[\s>]|xlink:/i.test(v)) fail('_site/preview.svg: script, handler, link or external reference');
+  if (!/^<svg xmlns="http:\/\/www\.w3\.org\/2000\/svg"[\s\S]*<\/svg>\s*$/.test(v)) fail('_site/preview.svg: not one svg element');
+} else fail('no _site/preview.svg');
+if (existsSync('_site/preview.png')) {
+  const b = readFileSync('_site/preview.png'), rec = JSON.parse(readFileSync('src/data/preview-png.json', 'utf8')).png;
+  const hash = createHash('sha256').update(b).digest('hex');
+  if (b.subarray(0, 8).toString('hex') !== '89504e470d0a1a0a') fail('_site/preview.png: not a PNG');
+  else if (b.readUInt32BE(16) !== rec.width || b.readUInt32BE(20) !== rec.height) fail('_site/preview.png: size differs from its record');
+  if (b.length > 300000 || b.length !== rec.bytes || !hash.startsWith(rec.sha256_prefix)) fail('_site/preview.png: differs from src/data/preview-png.json');
+  if (b.subarray(-8, -4).toString('latin1') !== 'IEND') fail('_site/preview.png: data after IEND');
+} else fail('no _site/preview.png');
 for (const f of ['_site/api/v1/index.json', '_site/api/v1/cameras.json', '_site/api/v1/places/index.json', '_site/api/v1/openapi.json']) if (!existsSync(f)) fail(`missing ${f}`);
 for (const f of files.filter((x) => /^_site\/api\/v1\/(cameras|places)\/.+\.json$/.test(x.split(sep).join('/')))) {
   try { const d = JSON.parse(readFileSync(f, 'utf8')); if (!d.license || !d.license.url) fail(`${f}: no license link`); } catch { fail(`${f}: not JSON`); }

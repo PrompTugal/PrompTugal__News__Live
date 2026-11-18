@@ -4,6 +4,7 @@
 import { mkdirSync, writeFileSync, readFileSync } from 'node:fs';
 import { join, resolve, sep } from 'node:path';
 import { esc, clean, safeUrl, fetchJson, normaliseCamera, embedDecision, normaliseHistory, DATA_HOST } from './lib.mjs';
+import { previewNumbers, previewJson, previewSvg } from './preview.mjs';
 
 const SITE = 'https://live.promptugal.news';
 const DATA = `https://${DATA_HOST}`;
@@ -42,6 +43,9 @@ function page({ path, title, description, body, frameHosts = [], scripts = [], c
 <title>${esc(title)}</title>
 <meta name="description" content="${esc(description)}">
 <link rel="canonical" href="${SITE}${path}">
+<meta property="og:title" content="${esc(title)}">
+<meta property="og:description" content="${esc(description)}">
+<meta property="og:image" content="${SITE}/preview.png">
 <link rel="icon" href="/assets/brand/favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="/assets/brand/brand-tokens.css">
 <link rel="stylesheet" href="/assets/site.css">
@@ -121,6 +125,17 @@ function weatherHtml(w, placeId, placeName) {
 <p class="src">Source: IPMA station ${esc(w.station)}${w.km !== null ? `, ${esc(w.km)} km from ${esc(placeName)}` : ''}, ${w.at ? `reading of ${fmtTime(w.at)}` : 'no reading at build time'}, as collected by <a href="${esc(from)}">data.promptugal.news</a> (${a(IPMA_LICENSE.url, "IPMA's terms")}). The weather is for the place, not the camera's exact spot. Not a warning service: follow ${a('https://www.ipma.pt/', 'IPMA')}.</p>`;
 }
 
+// A place's point from data.promptugal.news's now file (Wikidata P625, CC0), checked; else null and the IPMA
+// list stays. Only own numeric fields, inside the Algarve and Lisbon with a margin, 4 decimals.
+function coordsOf(now) {
+  const c = now && typeof now === 'object' && now.coords && typeof now.coords === 'object' && !Array.isArray(now.coords) ? now.coords : null;
+  if (!c || !Object.prototype.hasOwnProperty.call(c, 'lat') || !Object.prototype.hasOwnProperty.call(c, 'lon')) return null;
+  const { lat, lon } = c;
+  if (typeof lat !== 'number' || typeof lon !== 'number' || !Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+  if (lat < 36.8 || lat > 39.0 || lon < -9.6 || lon > -7.2) return null;
+  return { lat: Math.round(lat * 1e4) / 1e4, lon: Math.round(lon * 1e4) / 1e4 };
+}
+
 // ---------- the map (self-drawn SVG: no tiles, no third party) ----------
 const BOX = { w: 900, h: 340, lon0: -9.1, lon1: -7.05, lat0: 36.93, lat1: 37.53 };
 const xy = (lat, lon) => [((lon - BOX.lon0) / (BOX.lon1 - BOX.lon0)) * BOX.w, ((BOX.lat1 - lat) / (BOX.lat1 - BOX.lat0)) * BOX.h];
@@ -155,7 +170,7 @@ function mapSvg(places, cameras) {
 ${coastPaths()}
 ${dots}
 ${cams}
-</svg><figcaption>The Algarve; cameras elsewhere are in the list below. Coastline: <a href="/data/coastline.json">Natural Earth's 1:10m coastline</a> (public domain), coarse at this scale. Places from IPMA's list of forecast locations; cameras from data.promptugal.news's register. Green square: up at the last check; red: down; grey: not known.</figcaption></figure>`;
+</svg><figcaption>The Algarve; cameras elsewhere are in the list below. Coastline: <a href="/data/coastline.json">Natural Earth's 1:10m coastline</a> (public domain), coarse at this scale. Places from data.promptugal.news (Wikidata) where it gives a point, else IPMA's list of forecast locations; cameras from data.promptugal.news's register. Green square: up at the last check; red: down; grey: not known.</figcaption></figure>`;
 }
 
 const stateText = { up: 'up', down: 'down', unknown: 'not known' };
@@ -240,6 +255,9 @@ export async function generate(outDir = '_site', opts = {}) {
     if (Date.now() > deadline) { weather[p.id] = null; continue; }
     const r = await fetchJson(`${DATA}/api/v1/by-place/now/${p.id}.json`, { maxBytes: 1_000_000 });
     weather[p.id] = r.ok ? weatherOf(r.data) : null;
+    const k = r.ok ? coordsOf(r.data) : null;
+    if (k) { p.lat = k.lat; p.lon = k.lon; p.coords_label = 'Wikidata (P625), CC0, as collected by data.promptugal.news'; }
+    else if (p.lat) p.coords_label = "IPMA's list of forecast locations";
   }
 
   const algarve = new Set(placesDoc.places.filter((p) => p.lat).map((p) => p.id));
@@ -263,7 +281,7 @@ export async function generate(outDir = '_site', opts = {}) {
   const placeApi = (p) => {
     const list = camsIn(p.id);
     const here = list.find((c) => c.status.state === 'up' && c.decision.embed) || list.find((c) => c.status.state === 'up') || list[0] || null;
-    return { id: p.id, name: p.name, lat: p.lat ?? null, lon: p.lon ?? null, page: `${SITE}/places/${p.id}/`, camera_here: here ? pub(here) : null, cameras: list.map((c) => c.id), weather_from: `${DATA}/api/v1/by-place/now/${p.id}.json` };
+    return { id: p.id, name: p.name, lat: p.lat ?? null, lon: p.lon ?? null, coords_from: p.coords_label || null, page: `${SITE}/places/${p.id}/`, camera_here: here ? pub(here) : null, cameras: list.map((c) => c.id), weather_from: `${DATA}/api/v1/by-place/now/${p.id}.json` };
   };
   json('api/v1/places/index.json', { license: { ...licence, coords: placesDoc.coords_source }, about: 'The places live.promptugal.news covers, each with "the camera here" (an embedded camera up at the last check, else any camera up, else the first, or null) for the weather, travel and place pages.', ...meta, places: places.map(placeApi) });
   for (const p of places) json(`api/v1/places/${p.id}.json`, { license: { ...licence, coords: placesDoc.coords_source }, ...meta, place: placeApi(p) });
@@ -291,6 +309,7 @@ ${cameras.length ? camTable(cameras, placeName) : noCameras()}
     write(`places/${p.id}/index.html`, page({ path: `/places/${p.id}/`, current: '/places/', title: `${p.name}: public cameras, PrompTugal.news Live`, description: `The public cameras shared by public bodies and operators in ${p.name}, and the weather there.`, scripts: ['/assets/live.js'],
       body: `<p class="crumb"><a href="/places/">Places</a></p><h1>${esc(p.name)}</h1>
 <h2>Cameras</h2>${list.length ? camTable(list, placeName) : noCameras()}
+${p.lat ? `<p class="muted">Position on the map: ${esc(p.lat)}, ${esc(p.lon)}, from ${esc(p.coords_label || '')}.</p>` : ''}
 <h2>The weather in ${esc(p.name)}</h2>${p.kind === 'region' ? '<p class="muted">The Algarve is a region: open a place for its weather.</p>' : weatherHtml(weather[p.id], p.id, p.name)}
 <p class="muted">Also: <a href="https://promptugal.news/algarve/">PrompTugal.news on the Algarve</a> · <a href="/api/v1/places/${p.id}.json">this place's data</a>.</p>` }));
   }
@@ -331,6 +350,10 @@ ${view}
     const body = text.replace(/^<!-- (title|description): .+ -->\n/gm, '');
     write(`${name}/index.html`, page({ path: `/${name}/`, current: `/${name}/`, title, description, body }));
   }
+  // the preview for the sites bar
+  const pn = previewNumbers(cameras, STATE.read_at);
+  write('preview.svg', previewSvg(pn));
+  json('preview.json', previewJson(pn));
   STATE.cameras = cameras.length;
   STATE.embedded = cameras.filter((c) => c.decision.embed).map((c) => c.decision.host);
   return STATE;
@@ -360,7 +383,7 @@ function openapi() {
         license: { type: 'object', properties: { name: { type: 'string' }, url: { type: 'string' } } },
         status: ref('Check'), status_history: { type: 'string' }, registered_at: { type: 'string' }, page: { type: 'string' }, source: { type: 'string' } } },
       Check: { type: 'object', properties: { state: { enum: ['up', 'down', 'unknown'] }, at: { type: 'string' }, checked_at: { type: 'string' }, http_status: { type: ['integer', 'null'] } } },
-      Place: { type: 'object', properties: { id: { type: 'string' }, name: { type: 'string' }, lat: { type: ['number', 'null'] }, lon: { type: ['number', 'null'] }, page: { type: 'string' }, camera_here: { oneOf: [ref('Camera'), { type: 'null' }] }, cameras: { type: 'array', items: { type: 'string' } }, weather_from: { type: 'string' } } },
+      Place: { type: 'object', properties: { id: { type: 'string' }, name: { type: 'string' }, lat: { type: ['number', 'null'] }, lon: { type: ['number', 'null'] }, coords_from: { type: ['string', 'null'] }, page: { type: 'string' }, camera_here: { oneOf: [ref('Camera'), { type: 'null' }] }, cameras: { type: 'array', items: { type: 'string' } }, weather_from: { type: 'string' } } },
     } },
   };
 }

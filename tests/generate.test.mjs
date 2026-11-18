@@ -19,6 +19,9 @@ cameras.push({ ...base, id: 'own-site', name: 'own site', page_url: 'https://www
 cameras.push({ ...base, id: 'relative-link', name: 'relative', page_url: '/api/v1/cameras.json', operator: { ...base.operator, url: 'https://www.cm-faro.pt:8443/' } });
 const routes = {
   'https://data.promptugal.news/api/v1/cameras/index.json': { cameras },
+  'https://data.promptugal.news/api/v1/by-place/now/faro.json': { coords: { lat: 37.0194, lon: -7.9304 } },
+  'https://data.promptugal.news/api/v1/by-place/now/tavira.json': { coords: { lat: '37.1', lon: -7.6 } },
+  'https://data.promptugal.news/api/v1/by-place/now/lagos.json': { coords: { lat: 51.5, lon: -0.1 } },
   'https://data.promptugal.news/api/v1/cameras/good-embed/status.json': [{ at: '2026-11-18T15:00:00Z', state: 'up' }, { at: '2026-11-18T16:00:00Z', state: 'down' }, { at: '2026-11-18T17:00:00Z', state: 'up' }, { at: 'bad', state: 'up' }],
 };
 globalThis.fetch = async (u) => {
@@ -53,6 +56,14 @@ check(!existsSync(join(out, 'cameras/relative-link')), 'a site-relative or port 
 check(JSON.parse(read('api/v1/cameras/good-embed.json')).camera.status_history.startsWith('https://data.promptugal.news/'), 'API: status_history absolute');
 const home = read('index.html');
 check(/<path class="m-coast" d="M[0-9. LM-]+"><\/path>/.test(home), 'coastline drawn as numbers-only paths');
+const pv = read('preview.svg');
+check(!pv.includes('<b>') && !pv.includes('onmouseover') && !pv.includes('Praia') && /cameras listed/.test(pv), 'preview.svg holds counts only, no register text');
+check(JSON.parse(read('preview.json')).numbers.cameras === 6, 'preview.json counts the kept cameras');
+const pl = JSON.parse(read('api/v1/places/index.json')).places;
+const byId = Object.fromEntries(pl.map((p) => [p.id, p]));
+check(byId.faro.lat === 37.0194 && /Wikidata/.test(byId.faro.coords_from), 'coords from data.promptugal.news when valid');
+check(byId.tavira.lat === 37.13 && /IPMA/.test(byId.tavira.coords_from), 'a string latitude falls back to IPMA');
+check(byId.lagos.lat === 37.1039, 'a point outside Portugal falls back to IPMA');
 const api = JSON.parse(read('api/v1/places/faro.json'));
 check(api.place.camera_here && api.place.camera_here.id === 'good-embed', 'the camera here is the embedded one that is up');
 const c = JSON.parse(read('api/v1/cameras/not-listed-host.json'));

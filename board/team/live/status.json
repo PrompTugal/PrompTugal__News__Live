@@ -1,8 +1,8 @@
 {
  "agent": "live.b@PrompTugal.dinis",
  "site": "https://live.promptugal.news",
- "updated": "2026-11-18T19:13Z",
- "state": "second wake: coastline on the map; observability waits for Dinis",
+ "updated": "2026-11-18T22:12Z",
+ "state": "third wake: preview for the sites bar; place points from Wikidata via data.promptugal.news",
  "brief": "conductor.b@PrompTugal.dinis at Dinis's word, 18 Nov 2026 (Dinis, about 17:30 UTC: a site 'to list and show the live video feeds of public cameras that exist in the regions/cities we cover ... with the data, location and other data/stats captured by the data site/team')",
  "inner_passes": {
   "opening_conductor": "ran (Sonnet): plan inside the brief; flagged the agent-name conflict and the missing pieces, all added",
@@ -19,11 +19,14 @@
   "Threat models: docs/threat-models/ (build and register, scheduled rebuild, embeds and the browser)",
   "Click-to-load embeds (the YouTube flow) and a provenance block on every camera record and page, after Dinis's 19:00 UTC word",
   "Signed the first version's tree (board/team/live/signatures/) and released with scripts/release.sh",
-  "Wake 2 (from 19:09 UTC): the Algarve coastline on the map from Natural Earth 1:10m (public domain, pinned commit, provenance in src/data/coastline.json); label placement fixed; validator checks licence links on /data/*.json"
+  "Wake 2 (from 19:09 UTC): the Algarve coastline on the map from Natural Earth 1:10m (public domain, pinned commit, provenance in src/data/coastline.json); label placement fixed; validator checks licence links on /data/*.json",
+  "Wake 3 (from 22:08 UTC): /preview.svg and /preview.json made at each build from the site's own counts; static /preview.png social card, checked by the validator; og:image on every page; place points from data.promptugal.news coords (Wikidata P625, CC0) when valid, else IPMA"
  ],
  "next": [
+  "Install the sites bar once dev@ and designer@ publish it: vendor its code pinned by version and sha256, render promptugal.news/api/v1/sites.json escaped with https *.promptugal.news links only, replace the sites rail",
   "Review each new register entry at every wake; add an operator host to src/data/operator-hosts.json only after reading that operator's terms",
-  "obs.js with a 'live' lane made on account B by live.b@ (Dinis, main repo board/guidance/2026-11-18-keys-issues-rebuilds-observability.md, item 5; model: civic's tools/obs-setup-civic.py), drain credentials sealed to conductor.b-promptugal with sgit pki encrypt, never committed; if the public obs.json trips the leak scan, ask Dinis before any allowlist entry"
+  "obs.js with a 'live' lane made on account B by live.b@ (Dinis, main repo board/guidance/2026-11-18-keys-issues-rebuilds-observability.md, item 5; model: civic's tools/obs-setup-civic.py), drain credentials sealed to conductor.b-promptugal with sgit pki encrypt, never committed; if the public obs.json trips the leak scan, ask Dinis before any allowlist entry",
+  "Check that the three-hourly scheduled rebuild fires (none had at 22:08 UTC); if not, ask devops or Dinis"
  ],
  "asks": [
   "Dinis: may live.promptugal.news's observability config (src/assets/obs/obs.json: append-only lane tokens and the drain's public key, as on civic, where you said 'Those tokens are public by design') have the same narrow leak-scan allowlist entry here? Until you say, I have not made the lane or added obs.js.",
@@ -49,5 +52,13 @@
  "answered_by_dinis": [
   "2026-11-18 about 19:00 UTC (PrompTugal__News__Website board/guidance/2026-11-18-cameras-provenance-and-bulletins.md): the camera rules confirmed; MEO BeachCam through its official embeds and Windy's webcams API, attributed, may be listed; the YouTube flow (built here as click-to-load); provenance on every item (added to each camera record and page)"
  ],
- "from_conductor": "2026-11-18 about 19:06 UTC: keep the commit check additive and CLAUDE.md as the factory wrote it unless Dinis says otherwise; put the meter question to Dinis"
+ "from_conductor": "2026-11-18 about 19:06 UTC: keep the commit check additive and CLAUDE.md as the factory wrote it unless Dinis says otherwise; put the meter question to Dinis",
+ "briefs": [
+  {
+   "given": "2026-11-18 about 22:00 UTC",
+   "by": "Dinis, in conductor.b@'s session (main repo board/guidance/2026-11-18-the-sites-bar.md)",
+   "words": "a common sort of little pop-up that shows a preview of each website ... a screenshot or maybe an infographic or something for each one, and then I can click on it and navigate between them",
+   "ours": "the preview at each build (done); install the bar when dev@ and designer@ publish it (waiting)"
+  }
+ ]
 }

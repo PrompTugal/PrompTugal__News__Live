@@ -1,0 +1,27 @@
+{
+ "about": "The social card /preview.png: rendered once from src/assets/card/card.svg (no live numbers; the live numbers are in /preview.svg and /preview.json, made at each build). The validator checks the PNG against this record.",
+ "license": {
+  "name": "CC BY 4.0",
+  "url": "https://creativecommons.org/licenses/by/4.0/",
+  "holder": "PrompTugal.news"
+ },
+ "provenance": {
+  "from": "src/assets/card/card.svg",
+  "rendered_at": "2026-11-18T22:12Z",
+  "by": "live.b@PrompTugal.dinis",
+  "renderer": "Chromium 157.0.8103.78 (Playwright screenshot, 1200x630, scale 1), then only the IHDR, IDAT and IEND chunks kept and three tEXt chunks added (Title, Copyright, Source)",
+  "font": {
+   "name": "Inter",
+   "license": {
+    "name": "SIL Open Font License 1.1",
+    "url": "https://openfontlicense.org/"
+   }
+  }
+ },
+ "png": {
+  "width": 1200,
+  "height": 630,
+  "bytes": 67822,
+  "sha256_prefix": "0a3dee2a37c4f222"
+ }
+}
