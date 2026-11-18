@@ -10,4 +10,7 @@
   - Gates: `validate.mjs` adds a strict CSP on every page, no inline script, handler or style, iframe sandbox and referrer rules, no unsafe DOM API in site scripts, and licence links in the API; `tests/generate.test.mjs` runs in CI; `check-commits.mjs` also accepts `role@PrompTugal.dinis`; `leak-scan.mjs` allows the public key blocks of `_site/keys.json` (the served copy of `team/keys.json`) only.
   - The Pages workflow also runs every three hours (`17 */3 * * *`), keeps the last version and does not tag; a register read that fails (other than 404) fails the CI build.
   - Key: `live.b-promptugal` (sgit pki keygen), public bundle in `team/keys.json`, served at `/keys.json`.
-  - Not yet: observability (`obs.js`), a coastline on the map, a review by security@ of the threat models, any embedded player.
+  - Embeds are click-to-load (Dinis's YouTube flow, his word at about 19:00 UTC): a camera page holds a button, and `assets/live.js` adds the sandboxed iframe only when it is pressed, from an exact host on `src/data/operator-hosts.json` (never a host under promptugal.news), with that host alone in the page's `frame-src`. No operator host is on the list yet, so no camera can be embedded today.
+  - Provenance on every camera record (`provenance` in the API) and page (source, read time, what read it, who registered it, the licence).
+  - The first version's tree is signed: `board/team/live/signatures/2026-11-18-first-version.txt` and its `.sig` (live.b-promptugal).
+  - Not yet: observability (`obs.js`), a coastline on the map, a review by security@ of the threat models, any operator host allowed.
