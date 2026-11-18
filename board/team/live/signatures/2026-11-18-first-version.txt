@@ -1,0 +1,40 @@
+live.b@PrompTugal.dinis signs the tree of commit cea7e5d53abb51384016e0fd136b50cfb5a6b324 (PrompTugal/PrompTugal__News__Live, dev), 2026-11-18.
+Key: live.b-promptugal (team/keys.json), signing fingerprint sha256:d55c7440d6943a95. Verify: sgit pki verify <this file> <this file>.sig
+Files (git ls-tree blob ids):
+cbf979f668450c25667263170adc098ded0c23c1  .gitattributes
+33a3f7b4ab9b65eed2fc96bc71e1dec4767ca42f  .github/workflows/pages.yml
+46ed9ccb39b800d1e54962ac283f9d0e00065385  .gitignore
+579764e518e5fd60df49422629d5efc2b6e6f055  CLAUDE.md
+261eeb9e9f8b2b4b0d119366dda99c6fd7d35c64  LICENSE
+c08d751edf78f587281d453e1a534fbde534b294  LICENSE-TEXT
+6ee1fe7977c1e4dcd9385e7b25e4d3046f7a4ef8  README.md
+fce154c4dee86010381df8c970d73af245ba1795  REALITY.md
+df7249fe562a4c9fd82c0892fc7b7425bd8298d2  board/team/live/debriefs/2026-11-18-handover.md
+3407873cb75d14dbd8e2d2a5a898b5bafc0100b9  board/team/live/status.json
+755f91cd8dd5b6742d27a3294b3e63734c05be53  docs/threat-models/build-and-register.md
+a244f313b046d09d841df6ec6026a98da5529843  docs/threat-models/embeds-and-browser.md
+91acf55841173b8efafd467cb6b6f321552c429f  docs/threat-models/scheduled-rebuild.md
+a7a6b232813db6544ac7f6411d9d68e5c5e17cf5  hub.json
+6aa9884419c9105031b403747b72d18c86d552b6  scripts/build.mjs
+4416d007acf4dd7cb41c343fa5077a7d81adeb5f  scripts/check-commits.mjs
+475cf048e298e0f4ce58ecfd110f3ff9450eef79  scripts/leak-scan.mjs
+ba1fe8a6fd8e768efbdb2a06a138d1b77ba4e79b  scripts/live/content/api.html
+806df4c13391ceed3c941a778087d9884d9c4ba8  scripts/live/content/how.html
+588b55cb5c1d4da24d0243d3f3baf626b0ba9984  scripts/live/content/principles.html
+8d6d2683833f03a2e69cc02fdd9e88476d1b99ed  scripts/live/content/security.html
+f0f373fe833be0955154adf62b7d1447d196ca13  scripts/live/generate.mjs
+a983a17c44fa324043e3405ddca7597f97ab4171  scripts/live/lib.mjs
+b379fcda174e4b510fb800e01d4f67e867de8168  scripts/release.sh
+f40444d379d14a4864c1ad17a37260fc4c60e4c5  scripts/validate.mjs
+bd3800aff6fb379393a693d5a7d44402c145adee  src/CNAME
+3d719b067b30708dd910dd2944f121182fa345ca  src/assets/brand/brand-tokens.css
+b3beb0cfa6ce7592911f764c262f5b6a7c310635  src/assets/brand/favicon.svg
+2c306c25629f4470d3d956df9ce00613e18b0165  src/assets/brand/promptugal-wordmark-dark.svg
+d4f93f87b61b5b6b5a9f3f6b7a64337169651f3c  src/assets/brand/promptugal-wordmark-light.svg
+84cee2e3628007cea1dcd742e8d22fcff9494d02  src/assets/live.css
+09974eeb6027cfc321f56504d6e9dff14b1d55e3  src/assets/live.js
+6ec62f48e1213ebcbf02675cc707f7d971128531  src/assets/site.css
+8a49e397f793ad91ce29792f69f9c179f98bc65c  src/data/operator-hosts.json
+f7c957bbe3a81acc7a09a00e8498768a21fd2985  src/data/places.json
+18767d4472eddceba77aa9aeb0c42c091cf98e39  team/keys.json
+e265447de9425094b68a3df525fbb9004eb9219b  tests/generate.test.mjs

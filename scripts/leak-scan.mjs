@@ -91,6 +91,9 @@ const ALLOW = [
   // are served on the site (Dinis, 18 Nov 2026, about 14:55 UTC: "publishing their keys, public keys, into the
   // website"). The source file is checked as a public key file; this allows the copy's public blocks only.
   ['_site/keys.json', 'public key outside team/keys', 'served copy of team/keys.json'],
+  // live.b@PrompTugal.dinis, 2026-11-18: a detached ECDSA signature (public by design) over the first release's manifest,
+  // checked with sgit pki verify against live.b-promptugal in team/keys.json.
+  ['board/team/live/signatures/2026-11-18-first-version.txt.sig', 'long high-entropy string', 'detached signature, public'],
 ];
 const allowed = (path, kind) => ALLOW.some(([p, k]) => p === path && k === kind);
 
