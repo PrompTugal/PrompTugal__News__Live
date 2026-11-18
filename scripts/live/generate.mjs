@@ -28,9 +28,19 @@ const fmtTime = (s) => (s ? esc(s.replace('T', ' ').replace(/:\d{2}(\.\d+)?Z$/, 
 const a = (url, text, ext = true) => { const u = safeUrl(url); if (!u) return esc(text); return `<a href="${esc(u)}"${ext && !u.startsWith('/') ? ' rel="noopener noreferrer nofollow" target="_blank"' : ''}>${esc(text)}</a>`; };
 
 // ---------- the page shell ----------
-function page({ path, title, description, body, frameHosts = [], scripts = [], current = '' }) {
-  const frames = frameHosts.length ? frameHosts.map((h) => `https://${h}`).join(' ') : "'none'";
-  const csp = `default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self' ${DATA}; frame-src ${frames}; base-uri 'none'; form-action 'none'; object-src 'none'`;
+// The policy for one page: frames only from the reviewed iframe sources, video and images only from the reviewed
+// media sources (host and path), each a CSP source expression built by embedDecision().
+const cspFor = ({ frameSrc = [], mediaSrc = [], connect = `'self' ${DATA}` }) => {
+  const f = [...new Set(frameSrc)].sort(), m = [...new Set(mediaSrc)].sort();
+  return `default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:${m.length ? ' ' + m.join(' ') : ''}; media-src ${m.length ? m.join(' ') : "'none'"}; connect-src ${connect}; frame-src ${f.length ? f.join(' ') : "'none'"}; base-uri 'none'; form-action 'none'; object-src 'none'`;
+};
+const srcsOf = (cams) => ({ frameSrc: cams.filter((c) => c.decision.embed && c.decision.kind === 'iframe').map((c) => c.decision.src), mediaSrc: cams.filter((c) => c.decision.embed && c.decision.kind !== 'iframe').map((c) => c.decision.src) });
+// The view of one camera, loaded when the reader presses its button (live.js checks every attribute again).
+const viewBox = (c, label) => { const d = c.decision; return `<div class="embed" data-embed-src="${esc(d.url)}" data-embed-host="${esc(d.host)}" data-embed-kind="${esc(d.kind)}" data-embed-prefix="${esc(d.path_prefix)}" data-embed-poster="${esc(d.poster)}" data-embed-title="${esc(c.name)}, ${esc(c.operator.name)}'s own ${d.kind === 'iframe' ? 'player' : d.kind}"><button type="button" class="embed-load">${esc(label)}</button><p class="embed-note">${esc(c.operator.name)}'s own ${d.kind === 'iframe' ? 'player' : d.kind === 'video' ? 'latest clip' : 'latest image'}, loaded from ${esc(d.host)} when you press the button; we never record or store it.</p></div>`; };
+const creditHtml = (c) => `<p class="credit">Live view: ${a(c.page_url || c.operator.url, c.operator.name)} · ${a(c.license.url, c.license.name)}${c.credit ? ` · ${esc(c.credit)}` : ''}. Shown under the operator's terms; this does not suggest the operator's endorsement.</p>`;
+
+function page({ path, title, description, body, frameSrc = [], mediaSrc = [], scripts = [], current = '' }) {
+  const csp = cspFor({ frameSrc, mediaSrc });
   const nav = [['/', 'Map'], ['/places/', 'Places'], ['/cameras/', 'Cameras'], ['/api/', 'API'], ['/how/', 'How'], ['/principles/', 'Principles'], ['/security/', 'Security']]
     .map(([h, t]) => `<a href="${h}"${current === h ? ' aria-current="page"' : ''}>${t}</a>`).join('\n');
   return `<!doctype html>
@@ -96,7 +106,7 @@ ${body}
 }
 
 function embedPage(c, d, placeName) {
-  const csp = `default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'; frame-src https://${d.host}; base-uri 'none'; form-action 'none'; object-src 'none'`;
+  const csp = cspFor({ ...srcsOf([c]), connect: "'none'" });
   return `<!doctype html>
 <html lang="en-GB">
 <head>
@@ -113,8 +123,9 @@ function embedPage(c, d, placeName) {
 <script src="/assets/live.js" defer></script>
 </head>
 <body class="embed-body">
-<div class="embed" data-embed-src="${esc(d.url)}" data-embed-host="${esc(d.host)}" data-embed-title="${esc(c.name)}, ${esc(c.operator.name)}'s own player"><button type="button" class="embed-load">Watch ${esc(c.name)} live</button><p class="embed-note">${esc(c.operator.name)}'s own player, from ${esc(d.host)}. Never recorded.</p></div>
-<p class="credit">Live view: ${a(c.page_url || c.operator.url, c.operator.name)} · ${a(c.license.url, c.license.name)} · <a href="${SITE}/cameras/${c.id}/" target="_blank" rel="noopener">PrompTugal.news Live</a></p>
+${viewBox(c, `Watch ${c.name} live`)}
+${creditHtml(c)}
+<p class="credit"><a href="${SITE}/cameras/${c.id}/" target="_blank" rel="noopener">About this camera on PrompTugal.news Live</a></p>
 </body>
 </html>
 `;
@@ -152,51 +163,62 @@ function weatherHtml(w, placeId, placeName) {
 
 // A place's point from data.promptugal.news's now file (Wikidata P625, CC0), checked; else null and the IPMA
 // list stays. Only own numeric fields, inside the Algarve and Lisbon with a margin, 4 decimals.
-function coordsOf(now) {
+function coordsOf(now, inPortugal = true) {
   const c = now && typeof now === 'object' && now.coords && typeof now.coords === 'object' && !Array.isArray(now.coords) ? now.coords : null;
   if (!c || !Object.prototype.hasOwnProperty.call(c, 'lat') || !Object.prototype.hasOwnProperty.call(c, 'lon')) return null;
   const { lat, lon } = c;
   if (typeof lat !== 'number' || typeof lon !== 'number' || !Number.isFinite(lat) || !Number.isFinite(lon)) return null;
-  if (lat < 36.8 || lat > 39.0 || lon < -9.6 || lon > -7.2) return null;
+  const portugal = lat >= 36.8 && lat <= 39.0 && lon >= -9.6 && lon <= -7.2, london = lat >= 51.2 && lat <= 51.8 && lon >= -0.6 && lon <= 0.4;
+  if (inPortugal ? !portugal : !london) return null; // a place's point must fall in its own country's box
   return { lat: Math.round(lat * 1e4) / 1e4, lon: Math.round(lon * 1e4) / 1e4 };
 }
 
-// ---------- the map (self-drawn SVG: no tiles, no third party) ----------
-const BOX = { w: 900, h: 340, lon0: -9.1, lon1: -7.05, lat0: 36.93, lat1: 37.53 };
-const xy = (lat, lon) => [((lon - BOX.lon0) / (BOX.lon1 - BOX.lon0)) * BOX.w, ((BOX.lat1 - lat) / (BOX.lat1 - BOX.lat0)) * BOX.h];
+// ---------- the maps (self-drawn SVG: no tiles, no third party), one per area ----------
+const AREAS = [
+  { id: 'algarve', title: 'The Algarve', box: { w: 900, h: 340, lon0: -9.1, lon1: -7.05, lat0: 36.93, lat1: 37.53 }, coast: true },
+  { id: 'london', title: 'Beyond Portugal: London', box: { w: 900, h: 560, lon0: -0.53, lon1: 0.31, lat0: 51.28, lat1: 51.70 }, coast: false },
+];
+const xy = (box, lat, lon) => [((lon - box.lon0) / (box.lon1 - box.lon0)) * box.w, ((box.lat1 - lat) / (box.lat1 - box.lat0)) * box.h];
+const inBox = (box, lat, lon) => {
+  if (typeof lat !== 'number' || typeof lon !== 'number') return false;
+  const [x, y] = xy(box, lat, lon);
+  return x >= 0 && x <= box.w && y >= 0 && y <= box.h;
+};
 // The coastline (src/data/coastline.json, Natural Earth): numbers only, each coerced and checked; the path is built
 // from the letters M and L and toFixed numbers, never from text in the file.
-function coastPaths() {
+function coastPaths(box) {
   let doc;
   try { doc = JSON.parse(readFileSync('src/data/coastline.json', 'utf8')); } catch { return ''; }
   const lines = Array.isArray(doc.lines) ? doc.lines.slice(0, 200) : [];
   return lines.map((line) => {
     const pts = (Array.isArray(line) ? line.slice(0, 5000) : []).map((p) => [Number(p?.[0]), Number(p?.[1])]).filter(([lon, lat]) => Number.isFinite(lon) && Number.isFinite(lat) && Math.abs(lon) <= 180 && Math.abs(lat) <= 90);
     if (pts.length < 2) return '';
-    const d = pts.map(([lon, lat], i) => { const [x, y] = xy(lat, lon); return `${i ? 'L' : 'M'}${x.toFixed(1)} ${y.toFixed(1)}`; }).join(' ');
+    const d = pts.map(([lon, lat], i) => { const [x, y] = xy(box, lat, lon); return `${i ? 'L' : 'M'}${x.toFixed(1)} ${y.toFixed(1)}`; }).join(' ');
     return `<path class="m-coast" d="${d}"></path>`;
   }).join('\n');
 }
 const LABEL_DY = { lagoa: 18 }; // Lagoa's label below its dot, clear of Portimão's
-function mapSvg(places, cameras) {
-  const dots = places.filter((p) => p.lat).map((p) => {
-    const [x, y] = xy(p.lat, p.lon);
-    const end = x > BOX.w * 0.8; // labels near the right edge sit to the left of their dot
+function mapSvg(area, places, cameras) {
+  const box = area.box;
+  const dots = places.filter((p) => inBox(box, p.lat, p.lon)).map((p) => {
+    const [x, y] = xy(box, p.lat, p.lon);
+    const end = x > box.w * 0.8; // labels near the right edge sit to the left of their dot
     const dy = LABEL_DY[p.id] || 4;
     return `<a href="/places/${p.id}/"><circle class="m-place" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="5"></circle><text class="m-label${end ? ' m-end' : ''}" x="${(end ? x - 8 : x + 8).toFixed(1)}" y="${(y + dy).toFixed(1)}">${esc(p.name)}</text></a>`;
   }).join('\n');
-  const cams = cameras.filter((c) => c.decision.embed && c.lat !== null && c.lon !== null).map((c) => {
-    const [x, y] = xy(c.lat, c.lon);
-    if (x < 0 || x > BOX.w || y < 0 || y > BOX.h) return '';
-    const d = c.decision;
-    return `<a class="m-cam-link" href="/cameras/${c.id}/" data-embed-src="${esc(d.url)}" data-embed-host="${esc(d.host)}" data-embed-title="${esc(c.name)}, ${esc(c.operator.name)}'s own player" data-cam-name="${esc(c.name)}" data-cam-operator="${esc(c.operator.name)}" data-cam-page="${esc(c.page_url || c.operator.url)}"><rect class="m-cam m-${c.status.state}" x="${(x - 7).toFixed(1)}" y="${(y - 7).toFixed(1)}" width="14" height="14"><title>${esc(c.name)}: press to watch live</title></rect></a>`;
+  const shown = cameras.filter((c) => c.decision.embed && inBox(box, c.lat, c.lon));
+  const r = shown.length > 200 ? 3 : 7;
+  const cams = shown.map((c) => {
+    const [x, y] = xy(box, c.lat, c.lon);
+    return `<a class="m-cam-link" href="/cameras/${c.id}/" data-view="${c.id}"><rect class="m-cam m-${c.status.state}" x="${(x - r).toFixed(1)}" y="${(y - r).toFixed(1)}" width="${2 * r}" height="${2 * r}"><title>${esc(c.name)}: press to watch</title></rect></a>`;
   }).join('\n');
-  return `<figure class="map"><svg viewBox="0 0 ${BOX.w} ${BOX.h}" role="img" aria-labelledby="map-t"><title id="map-t">The Algarve: the places we cover (circles) and the cameras you can watch here (squares)</title>
-<rect class="m-sea" x="0" y="0" width="${BOX.w}" height="${BOX.h}"></rect>
-${coastPaths()}
+  const how = area.coast ? ` Coastline: <a href="/data/coastline.json">Natural Earth's 1:10m coastline</a> (public domain), coarse at this scale.` : ' Positions only: no streets or river are drawn.';
+  return `<figure class="map" id="map-${area.id}"><p class="map-title">${esc(area.title)}: ${shown.length} camera${shown.length === 1 ? '' : 's'} to watch</p><svg viewBox="0 0 ${box.w} ${box.h}" role="img" aria-labelledby="map-t-${area.id}"><title id="map-t-${area.id}">${esc(area.title)}: the places we cover (circles) and the cameras you can watch here (squares)</title>
+<rect class="m-sea" x="0" y="0" width="${box.w}" height="${box.h}"></rect>
+${area.coast ? coastPaths(box) : ''}
 ${dots}
 ${cams}
-</svg><figcaption>Press a square to watch that camera live here, in its operator's own player. The Algarve; cameras elsewhere are in the list below. Coastline: <a href="/data/coastline.json">Natural Earth's 1:10m coastline</a> (public domain), coarse at this scale. Places from data.promptugal.news (Wikidata) where it gives a point, else IPMA's list of forecast locations; cameras from data.promptugal.news's register. Green square: up at the last check; red: down; grey: not known.</figcaption></figure>`;
+</svg><figcaption>Press a square to watch that camera here, in its operator's own view.${how} Places from data.promptugal.news (Wikidata) where it gives a point${area.id === 'algarve' ? ", else IPMA's list of forecast locations" : ''}; cameras from data.promptugal.news's register. Green square: up at the last check; red: down; grey: not known.</figcaption></figure>`;
 }
 
 const stateText = { up: 'up', down: 'down', unknown: 'not known' };
@@ -281,7 +303,7 @@ export async function generate(outDir = '_site', opts = {}) {
     if (Date.now() > deadline) { weather[p.id] = null; continue; }
     const r = await fetchJson(`${DATA}/api/v1/by-place/now/${p.id}.json`, { maxBytes: 1_000_000 });
     weather[p.id] = r.ok ? weatherOf(r.data) : null;
-    const k = r.ok ? coordsOf(r.data) : null;
+    const k = r.ok ? coordsOf(r.data, !p.from_register || p.id !== 'london') : null;
     if (k) { p.lat = k.lat; p.lon = k.lon; p.coords_label = 'Wikidata (P625), CC0, as collected by data.promptugal.news'; }
     else if (p.lat) p.coords_label = "IPMA's list of forecast locations";
   }
@@ -291,8 +313,8 @@ export async function generate(outDir = '_site', opts = {}) {
   const pub = (c) => ({
     id: c.id, name: c.name, place: c.place, lat: c.lat, lon: c.lon, coords_source: c.coords_source,
     operator: c.operator, page_url: c.page_url,
-    view: c.decision.embed ? { how: 'embed', url: c.decision.url, host: c.decision.host, embed_page: `${SITE}/embed/${c.id}/` } : { how: 'link', url: c.page_url || c.operator.url, why: c.decision.why },
-    terms: c.terms, license: c.license, status: c.status,
+    view: c.decision.embed ? { how: 'embed', kind: c.decision.kind, url: c.decision.url, poster: c.decision.poster || null, host: c.decision.host, path_prefix: c.decision.path_prefix || null, embed_page: `${SITE}/embed/${c.id}/` } : { how: 'link', url: c.page_url || c.operator.url, why: c.decision.why },
+    terms: c.terms, license: c.license, credit: c.credit || null, status: c.status,
     status_history: c.status_history.startsWith('/') ? `${DATA}${c.status_history}` : c.status_history, registered_at: c.registered_at,
     page: `${SITE}/cameras/${c.id}/`, api: `${SITE}/api/v1/cameras/${c.id}.json`,
     source: REGISTER,
@@ -314,21 +336,28 @@ export async function generate(outDir = '_site', opts = {}) {
   json('api/v1/index.json', {
     license: licence, about: 'The API of live.promptugal.news: GET only, plain JSON files, rebuilt every three hours and on every release. Metadata only: no frame, snapshot or stream.', ...meta,
     openapi: `${SITE}/api/v1/openapi.json`,
-    endpoints: ['/api/v1/index.json', '/api/v1/cameras.json', '/api/v1/cameras/{id}.json', '/api/v1/places/index.json', '/api/v1/places/{place}.json', '/api/v1/openapi.json', '/version.json'].map((p) => `${SITE}${p}`),
+    endpoints: ['/api/v1/index.json', '/api/v1/views.json', '/api/v1/cameras.json', '/api/v1/cameras/{id}.json', '/api/v1/places/index.json', '/api/v1/places/{place}.json', '/api/v1/openapi.json', '/version.json'].map((p) => `${SITE}${p}`),
   });
   json('api/v1/openapi.json', openapi());
+  // The map's viewer reads this (same origin): one entry per camera that can be watched here.
+  json('api/v1/views.json', { license: licence, about: "For the map on live.promptugal.news: how to show each camera that can be watched here. Each view is loaded from its operator on the reader's press, never stored.", ...meta,
+    views: Object.fromEntries(cameras.filter((c) => c.decision.embed).map((c) => [c.id, { name: c.name, operator: c.operator.name, operator_page: c.page_url || c.operator.url, kind: c.decision.kind, url: c.decision.url, poster: c.decision.poster || '', host: c.decision.host, path_prefix: c.decision.path_prefix || '', credit: c.credit || '', license: { name: c.license.name, url: c.license.url }, page: `/cameras/${c.id}/` }])) });
 
   // ---------- pages ----------
   const intro = `<p>Live views of the places we cover, from cameras that public bodies and operators share themselves. Each view is the operator's own player, embedded here with the credit and a link to them: we never record, store or re-host a picture, and we never analyse what a camera shows. Beside each camera: who runs it, its terms, whether it was up at the last check, and the weather in that place.</p>`;
   const watchable = cameras.filter((c) => c.decision.embed), linkOnly = cameras.filter((c) => !c.decision.embed);
   const noWatchable = () => `<div class="empty"><p><strong>No camera can be watched here yet.</strong> We show a camera only where its operator offers an embed whose terms let us use it, from the operator's own site. data.promptugal.news registers the cameras and checks their terms; ${cameras.length} are registered, and none has such an embed yet.</p></div>`;
-  write('index.html', page({ path: '/', current: '/', frameHosts: [...new Set(watchable.map((c) => c.decision.host))].sort(), title: 'PrompTugal.news Live: public cameras in the Algarve', description: 'A map of the public cameras that public bodies and operators share in the places PrompTugal.news covers: press one to watch it live in the operator\'s own player, never recorded.', scripts: ['/assets/live.js'],
+  const areaOf = (c) => AREAS.find((ar) => inBox(ar.box, c.lat, c.lon));
+  const maps = AREAS.filter((ar) => ar.id === 'algarve' || watchable.some((c) => areaOf(c) === ar)).map((ar) => mapSvg(ar, places, cameras)).join('\n');
+  const london = watchable.filter((c) => areaOf(c)?.id === 'london'), rest = watchable.filter((c) => areaOf(c)?.id !== 'london');
+  write('index.html', page({ path: '/', current: '/', ...srcsOf(watchable), title: 'PrompTugal.news Live: public cameras in the places we cover', description: 'A map of the public cameras that public bodies and operators share in the places PrompTugal.news covers: press one to watch it live in the operator\'s own player, never recorded.', scripts: ['/assets/live.js'],
     body: `<h1>Public cameras in the places we cover</h1>
 ${intro}
-${mapSvg(places, cameras)}
 <section id="viewer" class="viewer" aria-live="polite" hidden></section>
+${maps}
 <h2>Cameras you can watch here</h2>
-${watchable.length ? camTable(watchable, placeName) : noWatchable()}
+${watchable.length ? (rest.length ? camTable(rest, placeName) : '') : noWatchable()}
+${london.length ? `<details class="pending"><summary>Beyond Portugal: London, ${london.length} cameras</summary>${camTable(london, placeName)}</details>` : ''}
 ${linkOnly.length ? `<details class="pending"><summary>${linkOnly.length} more cameras are registered but cannot be shown here yet</summary><p>Their operators have not yet offered an embed we may use, so we do not show them on the map. We are asking them. Until then, each links to the operator's own page.</p>${camTable(linkOnly, placeName)}</details>` : ''}
 <p class="muted">Status is refreshed in your browser from <a href="${REGISTER}">data.promptugal.news</a> when it can be read; otherwise it is as at the last build. <a href="/api/v1/cameras.json">The data</a>.</p>` }));
 
@@ -351,9 +380,9 @@ ${p.lat ? `<p class="muted">Position on the map: ${esc(p.lat)}, ${esc(p.lon)}, f
     // Click-to-load (the YouTube flow): nothing loads from the operator until the reader asks; live.js then adds
     // the sandboxed iframe. Without script, the link below is the way to watch.
     const view = d.embed
-      ? `<div class="embed" data-embed-src="${esc(d.url)}" data-embed-host="${esc(d.host)}" data-embed-title="${esc(c.name)}, the operator's own player"><button type="button" class="embed-load">Load the live view from ${esc(d.host)}</button><p class="embed-note">The operator's own player loads from its own site when you press the button; we never record or store it.</p></div><p class="src">${a(c.page_url || c.operator.url, "Or watch on the operator's page")}.</p>`
+      ? `${viewBox(c, `Load the live view from ${d.host}`)}${creditHtml(c)}<p class="src">Embed it on another PrompTugal.news site: <a href="/embed/${c.id}/">/embed/${c.id}/</a>.</p>`
       : `<p class="view-link">${a(c.page_url || c.operator.url, `Watch on ${c.operator.name}'s own page`)}</p><p class="muted">A link, not an embed: ${esc(d.why)}.</p>`;
-    write(`cameras/${c.id}/index.html`, page({ path: `/cameras/${c.id}/`, current: '/cameras/', title: `${c.name}: PrompTugal.news Live`, description: `${c.name} in ${placeName(c.place)}, a public camera run by ${c.operator.name}: the operator's own view, its terms and its status.`, frameHosts: d.embed ? [d.host] : [], scripts: ['/assets/live.js'],
+    write(`cameras/${c.id}/index.html`, page({ path: `/cameras/${c.id}/`, current: '/cameras/', title: `${c.name}: PrompTugal.news Live`, description: `${c.name} in ${placeName(c.place)}, a public camera run by ${c.operator.name}: the operator's own view, its terms and its status.`, ...srcsOf([c]), scripts: ['/assets/live.js'],
       body: `<p class="crumb"><a href="/places/${c.place}/">${esc(placeName(c.place))}</a></p>
 <h1 data-cam="${esc(c.id)}">${esc(c.name)} <span class="st st-${c.status.state}">${stateText[c.status.state]}</span></h1>
 ${view}
@@ -362,7 +391,7 @@ ${view}
 <tr><td>Operator</td><td>${a(c.operator.url, c.operator.name)}</td></tr>
 <tr><td>Place</td><td><a href="/places/${c.place}/">${esc(placeName(c.place))}</a>${c.lat !== null ? ` · ${esc(c.lat)}, ${esc(c.lon)}${c.coords_source ? ` (${esc(c.coords_source)})` : ''}` : ''}</td></tr>
 <tr><td>Terms</td><td>${c.terms.url ? a(c.terms.url, 'The operator\'s terms') : 'No terms found on the operator\'s page'}, checked ${fmtTime(c.terms.checked_at)}: embedding ${esc(c.terms.embedding)}.${c.terms.summary ? ` ${esc(c.terms.summary)}` : ''}</td></tr>
-<tr><td>Licence</td><td>${a(c.license.url, c.license.name)}</td></tr>
+<tr><td>Licence</td><td>${a(c.license.url, c.license.name)}, commercial use ${esc(c.license.commercial_use)}${c.credit ? `; credit: ${esc(c.credit)}` : ''}</td></tr>
 <tr><td>Last check</td><td>${stateText[c.status.state]}, ${fmtTime(c.status.checked_at)}${c.status.http_status ? ` (HTTP ${esc(c.status.http_status)})` : ''}</td></tr>
 <tr><td>Registered</td><td>${fmtTime(c.registered_at)}${c.by ? ` by ${esc(c.by)}` : ''}</td></tr>
 <tr><td>Provenance</td><td>Read from <a href="${REGISTER}">data.promptugal.news's camera register</a> at ${fmtTime(STATE.read_at)} by this site's build (code, no model), for live.b@PrompTugal.dinis; the status check is data.promptugal.news's, a request to the operator's page only.</td></tr>

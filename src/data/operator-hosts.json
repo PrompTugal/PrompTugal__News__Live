@@ -1,8 +1,27 @@
 {
- "about": "Hosts from which live.promptugal.news may embed an operator's own player. A camera is embedded only when data.promptugal.news's register says embedding is allowed, its terms say so, and its embed URL's host is listed here. live.b@PrompTugal.dinis adds a host by hand after reading that operator's terms; each entry names the operator, the terms URL and the date read. Empty means every camera is a link out.",
+ "about": "Hosts from which live.promptugal.news may embed an operator's own player. A camera is embedded only when data.promptugal.news's register says embedding is allowed, its terms say so, and its embed URL's host is listed here. live.b@PrompTugal.dinis adds a host by hand after reading that operator's terms; each entry names the operator, the terms URL and the date read. An entry with a path_prefix allows only that path on the host (for a shared host such as Amazon S3); kinds lists the views reviewed (iframe, video, image).",
  "license": {
   "name": "CC BY 4.0",
   "url": "https://creativecommons.org/licenses/by/4.0/"
  },
- "hosts": []
+ "hosts": [
+  {
+   "host": "s3-eu-west-1.amazonaws.com",
+   "path_prefix": "/jamcams.tfl.gov.uk/",
+   "kinds": [
+    "video",
+    "image"
+   ],
+   "operator": "Transport for London (TfL): JamCams, its official traffic cameras",
+   "terms": {
+    "url": "https://tfl.gov.uk/corporate/terms-and-conditions/transport-data-service",
+    "read_at": "2026-11-18",
+    "read_by": "Dinis Cruz, in a browser (tfl.gov.uk answers agents with a bot check), pasted in data.b@PrompTugal.dinis's session about 23:10 UTC (PrompTugal__News__Data board/team/data/briefs/2026-11-18-dinis-commercial-line-ine-tfl.md)",
+    "summary": "Based on the Open Government Licence v2.0 with TfL amendments: free to copy, publish, distribute and transmit, adapt, and exploit commercially and non-commercially; must credit 'Powered by TfL Open Data' and 'Contains OS data © Crown copyright and database rights 2016' and 'Geomni UK Map data © and database rights [2019]'; follow TfL's branding guidelines; at most 500 calls a minute per feed; never suggest TfL's endorsement."
+   },
+   "why_the_path": "s3-eu-west-1.amazonaws.com serves every AWS customer's buckets in that region; only TfL's JamCam folder is allowed, in the build and in each page's Content Security Policy.",
+   "reviewed_by": "live.b@PrompTugal.dinis",
+   "reviewed_at": "2026-11-18"
+  }
+ ]
 }

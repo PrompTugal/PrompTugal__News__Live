@@ -57,8 +57,11 @@ export async function fetchJson(url, { maxBytes = 5_000_000, timeoutMs = 15000 }
 const license = (v) => {
   const l = obj(v);
   const name = clean(l.name, 80), url = safeUrl(l.url);
-  return name || url ? { name: name || "the source's terms", url } : null;
+  // commercial_use: Dinis, 18 Nov 2026, about 23:10 UTC: the sites show only data whose licence allows commercial use.
+  return name || url ? { name: name || "the source's terms", url, commercial_use: pick(l.commercial_use, ['allowed', 'not-allowed', 'unclear'], 'unclear') } : null;
 };
+// A path prefix such as /jamcams.tfl.gov.uk/: starts and ends with a slash, no dot segments, safe characters only.
+const prefixOf = (v) => (typeof v === 'string' && /^\/[A-Za-z0-9._~-]+(\/[A-Za-z0-9._~-]+)*\/$/.test(v) && !/\/\.\.?\//.test(v) && v.length <= 200 ? v : '');
 
 // Copy the known fields of one register record, checked; anything else is dropped.
 // Returns { camera } or { skip: reason }.
@@ -74,12 +77,13 @@ export function normaliseCamera(raw, placeIds) {
     id,
     name: clean(c.name, 120) || id,
     place,
-    lat: num(c.lat, 36, 43), lon: num(c.lon, -32, -6),
+    lat: num(c.lat, 30, 61), lon: num(c.lon, -32, 2), // Portugal and its islands, and the UK (London from 18 Nov 2026)
     coords_source: clean(c.coords_source, 200),
     operator: { name: clean(op.name, 120), kind: pick(op.kind, ['camara', 'ip', 'port', 'airport', 'park', 'operator'], 'operator'), url: safeUrl(op.url) },
     page_url: safeUrl(c.page_url),
-    embed: { allowed: emb.allowed === true, url: safeUrl(emb.url), host: clean(emb.host, 120).toLowerCase(), how: pick(emb.how, ['iframe', 'link'], 'link') },
-    terms: { url: safeUrl(t.url), summary: clean(t.summary, 400), checked_at: iso(t.checked_at), embedding: pick(t.embedding, ['allowed', 'not-allowed', 'unclear'], 'unclear') },
+    embed: { allowed: emb.allowed === true, url: safeUrl(emb.url), image_url: safeUrl(emb.image_url), video_url: safeUrl(emb.video_url), host: clean(emb.host, 120).toLowerCase(), path_prefix: prefixOf(emb.path_prefix), how: pick(emb.how, ['iframe', 'video', 'image', 'link'], 'link') },
+    credit: clean(c.credit, 400),
+    terms: { url: safeUrl(t.url), summary: clean(t.summary, 400), checked_at: iso(t.checked_at), embedding: pick(t.embedding, ['allowed', 'not-allowed', 'unclear'], 'unclear'), commercial_use: pick(t.commercial_use, ['allowed', 'not-allowed', 'unclear'], 'unclear') },
     license: license(c.license),
     status: { state: pick(st.state, ['up', 'down', 'unknown'], 'unknown'), checked_at: iso(st.checked_at), http_status: num(st.http_status, 100, 599) },
     status_history: safeUrl(c.status_history, { relative: true }),
@@ -90,7 +94,11 @@ export function normaliseCamera(raw, placeIds) {
   if (!camera.page_url && !camera.operator.url) return { skip: `${id}: no operator page to link to` };
   // Terms must have been checked; a check that found none is kept, as a link out only.
   if (!camera.terms.checked_at) return { skip: `${id}: terms not checked` };
-  if (!camera.license) camera.license = { name: "the source's terms", url: camera.terms.url || camera.page_url || camera.operator.url };
+  if (!camera.license) camera.license = { name: "the source's terms", url: camera.terms.url || camera.page_url || camera.operator.url, commercial_use: 'unclear' };
+  // Commercial use may be recorded on the licence or on the terms (data.promptugal.news uses both); a 'not-allowed'
+  // on either wins, then an 'allowed' on either.
+  const cu = [camera.license.commercial_use, camera.terms.commercial_use];
+  camera.license.commercial_use = cu.includes('not-allowed') ? 'not-allowed' : cu.includes('allowed') ? 'allowed' : 'unclear';
   return { camera };
 }
 
@@ -99,13 +107,25 @@ export function embedDecision(cam, allowHosts) {
   const e = cam.embed;
   if (!e.allowed) return { embed: false, why: 'the register does not say embedding is allowed' };
   if (cam.terms.embedding !== 'allowed' || !cam.terms.url) return { embed: false, why: 'the operator terms, as checked, do not say embedding is allowed' };
-  if (e.how !== 'iframe' || !e.url || e.url.startsWith('/')) return { embed: false, why: 'no https embed URL' };
-  const h = hostOf(e.url);
+  if (!cam.license || cam.license.commercial_use !== 'allowed') return { embed: false, why: 'its licence, as recorded, does not say commercial use is allowed' };
+  const kind = e.how;
+  const url = kind === 'video' ? (e.video_url || e.url) : kind === 'image' ? (e.image_url || e.url) : kind === 'iframe' ? e.url : '';
+  if (!url || url.startsWith('/')) return { embed: false, why: 'no https embed URL' };
+  const h = hostOf(url);
   if (hostMatches(h, 'promptugal.news')) return { embed: false, why: 'an embed must come from the operator, never from our own sites' };
   if (!hostMatches(h, e.host)) return { embed: false, why: 'the embed URL is not on the host the register names' };
-  const entry = allowHosts.find((a) => typeof a.host === 'string' && a.host === h); // exact hosts only
+  const path = new URL(url).pathname;
+  // A shared host (Amazon S3, Google Cloud Storage, Azure blobs) is never allowed without a reviewed path, for any kind.
+  const shared = /(^|\.)(amazonaws\.com|storage\.googleapis\.com|blob\.core\.windows\.net)$/.test(h);
+  const entry = allowHosts.find((a) => typeof a.host === 'string' && a.host === h && (a.path_prefix ? path.startsWith(a.path_prefix) : true)); // exact hosts only
   if (!entry) return { embed: false, why: 'the host is not yet on our reviewed list of operator hosts' };
-  return { embed: true, host: h, url: e.url };
+  if (shared && !entry.path_prefix) return { embed: false, why: 'a shared storage host needs a reviewed path' };
+  if (entry.path_prefix && (!e.path_prefix || e.path_prefix !== entry.path_prefix)) return { embed: false, why: 'the embed is not under the path we reviewed on that host' };
+  if (Array.isArray(entry.kinds) && !entry.kinds.includes(kind)) return { embed: false, why: 'that kind of view was not reviewed for the host' };
+  const src = `https://${h}${entry.path_prefix || ''}`; // the CSP source expression: host, and path when one was reviewed
+  let poster = '';
+  if (kind === 'video' && e.image_url && hostOf(e.image_url) === h && new URL(e.image_url).pathname.startsWith(entry.path_prefix || '/')) poster = e.image_url;
+  return { embed: true, kind, host: h, url, poster, src, path_prefix: entry.path_prefix || '' };
 }
 
 export function normaliseHistory(raw) {

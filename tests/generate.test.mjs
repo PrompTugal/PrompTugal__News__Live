@@ -4,8 +4,10 @@ import { readFileSync, rmSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { generate } from '../scripts/live/generate.mjs';
+import { embedDecision } from '../scripts/live/lib.mjs';
+const embedDecisionShared = () => !embedDecision({ embed: { allowed: true, how: 'iframe', url: 'https://bucket.s3.amazonaws.com/p', host: 'bucket.s3.amazonaws.com' }, terms: { embedding: 'allowed', url: 'https://x.pt/t' }, license: { commercial_use: 'allowed' } }, [{ host: 'bucket.s3.amazonaws.com' }]).embed;
 
-const base = { place: 'faro', operator: { name: 'Câmara Municipal de Faro', kind: 'camara', url: 'https://www.cm-faro.pt/' }, terms: { url: 'https://www.cm-faro.pt/terms', checked_at: '2026-11-18T10:00:00Z', embedding: 'allowed' }, status: { state: 'up', checked_at: '2026-11-18T18:00:00Z', http_status: 200 } };
+const base = { license: { name: 'the operator\'s terms', url: 'https://www.cm-faro.pt/terms', commercial_use: 'allowed' }, place: 'faro', operator: { name: 'Câmara Municipal de Faro', kind: 'camara', url: 'https://www.cm-faro.pt/' }, terms: { url: 'https://www.cm-faro.pt/terms', checked_at: '2026-11-18T10:00:00Z', embedding: 'allowed' }, status: { state: 'up', checked_at: '2026-11-18T18:00:00Z', http_status: 200 } };
 const cameras = [
   { ...base, id: 'good-embed', lat: 37.01, lon: -7.93, name: 'Praia <b>test</b>', page_url: 'https://www.cm-faro.pt/cam', embed: { allowed: true, url: 'https://player.cm-faro.pt/e/1', host: 'player.cm-faro.pt', how: 'iframe' }, status_history: '/api/v1/cameras/good-embed/status.json' },
   { ...base, id: 'not-listed-host', name: 'x" onmouseover="alert(1)', page_url: 'javascript:alert(1)', operator: { ...base.operator, url: 'https://www.cm-faro.pt/' }, embed: { allowed: true, url: 'https://evil.example/e', host: 'evil.example', how: 'iframe' } },
@@ -15,6 +17,12 @@ const cameras = [
   { ...base, id: 'elsewhere', place: 'lisboa', name: 'not ours', page_url: 'https://x.pt/' },
   { ...base, id: 'terms-unclear', name: 'Unclear — dash', page_url: 'https://www.cm-faro.pt/u', terms: { ...base.terms, embedding: 'unclear' }, embed: { allowed: true, url: 'https://player.cm-faro.pt/e/2', host: 'player.cm-faro.pt', how: 'iframe' } },
 ];
+const jamBase = { place: 'london', lat: 51.5, lon: -0.1, operator: { name: 'Transport for London (TfL)', kind: 'ip', url: 'https://tfl.gov.uk/' }, page_url: 'https://tfl.gov.uk/traffic/status/', credit: 'Powered by TfL Open Data', terms: { url: 'https://tfl.gov.uk/terms', checked_at: '2026-11-18', embedding: 'allowed' }, license: { name: 'TfL', url: 'https://tfl.gov.uk/terms', commercial_use: 'allowed' }, status: { state: 'up' } };
+const jamEmbed = (u) => ({ allowed: true, how: 'video', host: 's3-eu-west-1.amazonaws.com', path_prefix: '/jamcams.tfl.gov.uk/', video_url: u, image_url: u.replace('.mp4', '.jpg') });
+cameras.push({ ...jamBase, id: 'london-jam-1', name: 'A2 test', embed: jamEmbed('https://s3-eu-west-1.amazonaws.com/jamcams.tfl.gov.uk/00001.1.mp4') });
+cameras.push({ ...jamBase, id: 'london-jam-2', name: 'A3 test', lat: 51.45, license: { name: 'TfL', url: 'https://tfl.gov.uk/terms' }, terms: { ...jamBase.terms, commercial_use: 'allowed' }, embed: jamEmbed('https://s3-eu-west-1.amazonaws.com/jamcams.tfl.gov.uk/00001.2.mp4') });
+cameras.push({ ...jamBase, id: 'london-jam-other-bucket', name: 'other bucket', embed: { ...jamEmbed('https://s3-eu-west-1.amazonaws.com/evil-bucket/x.mp4'), path_prefix: '/evil-bucket/' } });
+cameras.push({ ...jamBase, id: 'london-jam-no-commercial', name: 'no commercial', license: { ...jamBase.license, commercial_use: 'not-allowed' }, embed: jamEmbed('https://s3-eu-west-1.amazonaws.com/jamcams.tfl.gov.uk/00001.3.mp4') });
 cameras.push({ ...base, id: 'own-site', name: 'own site', page_url: 'https://www.cm-faro.pt/o', embed: { allowed: true, url: 'https://live.promptugal.news/x', host: 'live.promptugal.news', how: 'iframe' } });
 cameras.push({ ...base, id: 'relative-link', name: 'relative', page_url: '/api/v1/cameras.json', operator: { ...base.operator, url: 'https://www.cm-faro.pt:8443/' } });
 // 900 London records with unread terms, ahead of ours (as TfL JamCams arrived on 18 Nov): skipped, ours kept.
@@ -34,12 +42,12 @@ globalThis.fetch = async (u) => {
 };
 
 const out = process.env.KEEP_OUT || join(tmpdir(), `live-test-${process.pid}`);
-const state = await generate(out, { allowHosts: [{ host: 'player.cm-faro.pt' }, { host: 'live.promptugal.news' }], now: '2026-11-18T18:00:00Z' });
+const state = await generate(out, { allowHosts: [{ host: 'player.cm-faro.pt' }, { host: 'live.promptugal.news' }, { host: 's3-eu-west-1.amazonaws.com', path_prefix: '/jamcams.tfl.gov.uk/', kinds: ['video', 'image'] }], now: '2026-11-18T18:00:00Z' });
 const read = (p) => readFileSync(join(out, p), 'utf8');
 let failed = 0;
 const check = (ok, what) => { if (!ok) { failed++; console.error(`FAIL ${what}`); } else console.log(`ok   ${what}`); };
 
-check(state.cameras === 6, `6 cameras kept (got ${state.cameras})`);
+check(state.cameras === 10, `10 cameras kept (got ${state.cameras})`);
 check(state.skipped.length === 903, `903 skipped: 900 with terms not checked, traversal id, terms not checked, no safe operator page (got ${state.skipped.length})`);
 const g = read('cameras/good-embed/index.html');
 check(g.includes('data-embed-src="https://player.cm-faro.pt/e/1" data-embed-host="player.cm-faro.pt"') && !g.includes('<iframe') && g.includes('frame-src https://player.cm-faro.pt;'), 'reviewed host: click-to-load, and in frame-src');
@@ -58,9 +66,15 @@ check(!read('cameras/own-site/index.html').includes('data-embed-src'), 'no embed
 check(!existsSync(join(out, 'cameras/relative-link')), 'a site-relative or port URL from the data is not a link');
 check(JSON.parse(read('api/v1/cameras/good-embed.json')).camera.status_history.startsWith('https://data.promptugal.news/'), 'API: status_history absolute');
 const home = read('index.html');
-check((home.match(/class="m-cam-link"/g) || []).length === 1 && home.includes('data-embed-src="https://player.cm-faro.pt/e/1"'), 'the map shows only the embeddable camera');
-check(home.includes('id="viewer"') && /<details class="pending"><summary>5 more cameras/.test(home), 'link-only cameras are listed apart, not on the map');
-check(home.includes('frame-src https://player.cm-faro.pt;'), 'the home page may frame only the reviewed host');
+const views = JSON.parse(read('api/v1/views.json')).views;
+check((home.match(/class="m-cam-link"/g) || []).length === 3 && home.includes('data-view="good-embed"') && views['good-embed'].url === 'https://player.cm-faro.pt/e/1', 'the maps show only the embeddable cameras (Faro and two London), views.json holds each view');
+check(home.includes('id="viewer"') && /<details class="pending"><summary>7 more cameras/.test(home), 'link-only cameras are listed apart, not on the map');
+check(home.includes('frame-src https://player.cm-faro.pt;') && home.includes('media-src https://s3-eu-west-1.amazonaws.com/jamcams.tfl.gov.uk/;'), 'the home page: frames only from the reviewed host, media only from the reviewed path');
+const jam = read('cameras/london-jam-1/index.html');
+check(jam.includes('data-embed-kind="video"') && jam.includes('data-embed-prefix="/jamcams.tfl.gov.uk/"') && jam.includes('Powered by TfL Open Data') && jam.includes("frame-src 'none'"), 'a JamCam: a video view under its reviewed path, with its credit');
+check(!!views['london-jam-2'], 'commercial use recorded on the terms counts');
+check(embedDecisionShared(), 'a shared storage host without a reviewed path is refused for every kind');
+check(!views['london-jam-other-bucket'] && !views['london-jam-no-commercial'], 'another bucket on the shared host, or no commercial use: not shown');
 check(existsSync(join(out, 'embed/good-embed/index.html')) && !existsSync(join(out, 'embed/host-mismatch')), 'an embed page only for embeddable cameras');
 const emb = read('embed/good-embed/index.html');
 check(emb.includes("frame-src https://player.cm-faro.pt;") && emb.includes('Live view:') && emb.includes('href="https://www.cm-faro.pt/cam"'), 'embed page: one host, the credit and the link to the operator');
@@ -68,7 +82,7 @@ check(JSON.parse(read('api/v1/cameras/good-embed.json')).camera.view.embed_page 
 check(/<path class="m-coast" d="M[0-9. LM-]+"><\/path>/.test(home), 'coastline drawn as numbers-only paths');
 const pv = read('preview.svg');
 check(!pv.includes('<b>') && !pv.includes('onmouseover') && !pv.includes('Praia') && /cameras listed/.test(pv), 'preview.svg holds counts only, no register text');
-check(JSON.parse(read('preview.json')).numbers.cameras === 6, 'preview.json counts the kept cameras');
+check(JSON.parse(read('preview.json')).numbers.cameras === 10, 'preview.json counts the kept cameras');
 const pl = JSON.parse(read('api/v1/places/index.json')).places;
 const byId = Object.fromEntries(pl.map((p) => [p.id, p]));
 check(byId.faro.lat === 37.0194 && /Wikidata/.test(byId.faro.coords_from), 'coords from data.promptugal.news when valid');

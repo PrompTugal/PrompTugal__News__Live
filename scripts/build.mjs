@@ -32,4 +32,4 @@ for (const f of walk('_site')) {
 writeFileSync('_site/version.json', JSON.stringify({ version, commit: process.env.GITHUB_SHA || 'local', built: new Date().toISOString(), register: state.register, cameras: state.cameras }, null, 2) + '\n');
 writeFileSync('_site/.nojekyll', '');
 // Log ids and counts only: register text never reaches the log (prompt injection, the threat model).
-console.log(`built _site/ (${version}): register ${state.register_status ?? 'unavailable'}, ${state.cameras} cameras, ${state.skipped.length} skipped, embeds from ${state.embedded.length ? state.embedded.join(' ') : 'no host'}`);
+console.log(`built _site/ (${version}): register ${state.register_status ?? 'unavailable'}, ${state.cameras} cameras, ${state.skipped.length} skipped, embeds from ${state.embedded.length ? [...new Set(state.embedded)].join(' ') : 'no host'}`);

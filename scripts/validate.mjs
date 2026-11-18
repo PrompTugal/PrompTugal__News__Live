@@ -35,6 +35,8 @@ for (const f of [...files, 'hub.json', 'README.md']) {
 }
 // The exact hosts in a page's CSP frame-src.
 const frameHosts = (s) => ((s.match(/frame-src ([^;"]*)/) || [])[1] || '').trim().split(/\s+/).map((t) => t.replace(/^https:\/\//, ''));
+// media-src tokens as host+path, e.g. s3-eu-west-1.amazonaws.com/jamcams.tfl.gov.uk/
+const mediaSrcs = (s) => ((s.match(/media-src ([^;"]*)/) || [])[1] || '').trim().split(/\s+/).filter((t) => t.startsWith('https://')).map((t) => t.slice(8));
 // live.b@PrompTugal.dinis, 2026-11-18: the AppSec checks from the security pre-review of the first version.
 for (const f of files) {
   const s = readFileSync(f, 'utf8');
@@ -55,13 +57,28 @@ for (const f of files) {
     }
     for (const m of s.matchAll(/data-embed-src="https:\/\/([^/"]+)[^"]*" data-embed-host="([^"]+)"/g)) {
       if (m[1] !== m[2]) fail(`${f}: click-to-load host differs from its URL`);
-      if (!frameHosts(s).includes(m[1])) fail(`${f}: click-to-load host not in the page's frame-src`);
+      const kind = (s.slice(m.index, m.index + 3000).match(/data-embed-kind="([a-z]+)"/) || [])[1] || 'iframe';
+      const prefix = (s.slice(m.index, m.index + 3000).match(/data-embed-prefix="([^"]*)"/) || [])[1] || '';
+      if (kind === 'iframe' ? !frameHosts(s).includes(m[1]) : !mediaSrcs(s).includes(m[1] + (prefix || '/'))) fail(`${f}: click-to-load ${kind} source not in the page's ${kind === 'iframe' ? 'frame-src' : 'media-src'}`);
+      if (!prefix && /(^|\.)(amazonaws\.com|storage\.googleapis\.com|blob\.core\.windows\.net)$/.test(m[1])) fail(`${f}: a shared host without a path prefix`);
+      const full = (s.slice(m.index).match(/data-embed-src="https:\/\/[^/"]+([^"]*)"/) || [])[1] || '';
+      if (prefix && !full.startsWith(prefix)) fail(`${f}: click-to-load URL outside its reviewed path`);
       if (m[1] === 'promptugal.news' || m[1].endsWith('.promptugal.news')) fail(`${f}: an embed from our own sites`);
     }
     if (/data-embed-src="(?!https:\/\/)/.test(s)) fail(`${f}: click-to-load URL not https`);
   }
   if (f.endsWith('.js') && /\b(innerHTML|outerHTML|insertAdjacentHTML|document\.write|eval\s*\(|new Function)\b/.test(s)) fail(`${f}: unsafe DOM or eval API`);
 }
+// /api/v1/views.json (the maps' viewer): every view https, never from our own sites, under its reviewed path.
+if (existsSync('_site/api/v1/views.json')) {
+  const vv = JSON.parse(readFileSync('_site/api/v1/views.json', 'utf8')).views || {};
+  for (const [id, v] of Object.entries(vv)) {
+    let u; try { u = new URL(v.url); } catch { fail(`views.json ${id}: bad url`); continue; }
+    if (u.protocol !== 'https:' || u.hostname !== v.host || /(^|\.)promptugal\.news$/.test(u.hostname) || (v.path_prefix && !u.pathname.startsWith(v.path_prefix))) fail(`views.json ${id}: url not https on its host and path`);
+    if (!['iframe', 'video', 'image'].includes(v.kind)) fail(`views.json ${id}: unknown kind`);
+    if (v.poster) { let q; try { q = new URL(v.poster); } catch { q = null; } if (!q || q.protocol !== 'https:' || q.hostname !== v.host || (v.path_prefix && !q.pathname.startsWith(v.path_prefix))) fail(`views.json ${id}: poster not on its host and path`); }
+  }
+} else fail('no _site/api/v1/views.json');
 for (const f of ['_site/data/coastline.json', '_site/data/places.json', '_site/data/operator-hosts.json', '_site/data/preview-png.json', '_site/preview.json']) {
   try { const d = JSON.parse(readFileSync(f, 'utf8')); if (!d.license || !d.license.url) fail(`${f}: no license link`); } catch { fail(`${f}: missing or not JSON`); }
 }
