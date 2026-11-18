@@ -1,0 +1,19 @@
+<!-- title: Security: PrompTugal.news Live -->
+<!-- description: Security findings and threat models for PrompTugal.news Live, and where to report a problem. -->
+<h1>Security</h1>
+<p>Every vulnerability, bug and breach found on this site is listed here, with its severity, the fix and its state; the log for every PrompTugal.news site is at <a href="https://promptugal.news/security/">promptugal.news/security/</a>. An open finding is shown by its title, severity and state only, until it is fixed.</p>
+<h2>Findings</h2>
+<div class="scroll"><table><thead><tr><th>Found</th><th>Severity</th><th>What</th><th>State</th></tr></thead><tbody>
+<tr><td>2026-11-18, security pre-review of the first version</td><td>Design</td><td>Requirements set before any code: one escape function for every fetched value, https-only links, embeds only from reviewed operator hosts with a sandbox and no referrer, a per-page Content Security Policy, safe paths for camera ids, size and time limits on every read, and a scheduled rebuild that cannot tag or write.</td><td>Met in the first version</td></tr>
+<tr><td>2026-11-18, AppSec post-review of the first version</td><td>Medium</td><td>A register built to be slow (many new places, many history files) could keep a build running for hours. Fixed: at most 20 new places, optional reads stop after four minutes, the CI job stops at 15 minutes.</td><td>Fixed before release</td></tr>
+<tr><td>2026-11-18, AppSec post-review</td><td>Medium</td><td>A register that suddenly empties would replace the live pages with none. Fixed: the CI build fails if the cameras fall below half of those live.</td><td>Fixed before release</td></tr>
+<tr><td>2026-11-18, AppSec post-review</td><td>Low</td><td>Links from the register could be paths on this site, and a port was accepted on the data host. Fixed: links from the data must be absolute https without a port.</td><td>Fixed before release</td></tr>
+<tr><td>2026-11-18, AppSec post-review</td><td>Low</td><td>The validator matched frame hosts as substrings, and an allow-list entry covered subdomains. Fixed: exact hosts, and never a host under promptugal.news.</td><td>Fixed before release</td></tr>
+<tr><td>2026-11-18, AppSec post-review</td><td>Info</td><td>GitHub Actions are pinned by major version, not by commit (from the site template).</td><td>Open, recorded for security@</td></tr>
+</tbody></table></div>
+<h2>What a meta Content Security Policy cannot do</h2>
+<p>This site is served by GitHub Pages, which does not let us set response headers. The policy is set in each page's head, which cannot set <code>frame-ancestors</code> or reporting, so another site could frame these pages. Nothing on them acts on a click on your behalf: there are no forms, sign-ins or cookies.</p>
+<h2>Threat models</h2>
+<p>Listed on <a href="/how/">How this site works</a>, in <code>docs/threat-models/</code> of <a href="https://github.com/PrompTugal/PrompTugal__News__Live">the repository</a>.</p>
+<h2>Report a problem</h2>
+<p><a href="https://github.com/PrompTugal/PrompTugal__News__Live/issues/new?title=Security">Open an issue</a> (without exploit detail), or use <a href="https://promptugal.news/report/">promptugal.news/report/</a>.</p>

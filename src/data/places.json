@@ -1,0 +1,194 @@
+{
+ "about": "The places live.promptugal.news covers: the 18 places with a now file on data.promptugal.news (https://data.promptugal.news/api/v1/by-place/now/index.json, read 2026-11-18). Names written by live.b@PrompTugal.dinis. Coordinates: IPMA's list of forecast locations, one point per municipality (Quarteira: IPMA's point for Praia de Quarteira), used only to place dots on the map.",
+ "coords_source": {
+  "url": "https://api.ipma.pt/public-data/forecast/locations.json",
+  "read_at": "2026-11-18T18:20Z",
+  "holder": "IPMA, Instituto Português do Mar e da Atmosfera",
+  "license": {
+   "name": "the source's terms",
+   "url": "https://api.ipma.pt/"
+  }
+ },
+ "license": {
+  "name": "CC BY 4.0",
+  "url": "https://creativecommons.org/licenses/by/4.0/",
+  "note": "Our list; the coordinates stay under IPMA's terms, IPMA named as the source."
+ },
+ "places": [
+  {
+   "id": "albufeira",
+   "name": "Albufeira",
+   "lat": 37.0897,
+   "lon": -8.2472,
+   "coords_from": {
+    "ipma_globalIdLocal": 1080100,
+    "ipma_local": "Albufeira"
+   }
+  },
+  {
+   "id": "alcoutim",
+   "name": "Alcoutim",
+   "lat": 37.47,
+   "lon": -7.48,
+   "coords_from": {
+    "ipma_globalIdLocal": 1080200,
+    "ipma_local": "Alcoutim"
+   }
+  },
+  {
+   "id": "algarve",
+   "name": "The Algarve",
+   "kind": "region"
+  },
+  {
+   "id": "aljezur",
+   "name": "Aljezur",
+   "lat": 37.3169,
+   "lon": -8.8028,
+   "coords_from": {
+    "ipma_globalIdLocal": 1080300,
+    "ipma_local": "Aljezur"
+   }
+  },
+  {
+   "id": "castro-marim",
+   "name": "Castro Marim",
+   "lat": 37.2198,
+   "lon": -7.4445,
+   "coords_from": {
+    "ipma_globalIdLocal": 1080400,
+    "ipma_local": "Castro Marim"
+   }
+  },
+  {
+   "id": "faro",
+   "name": "Faro",
+   "lat": 37.0146,
+   "lon": -7.9331,
+   "coords_from": {
+    "ipma_globalIdLocal": 1080500,
+    "ipma_local": "Faro"
+   }
+  },
+  {
+   "id": "lagoa",
+   "name": "Lagoa",
+   "lat": 37.1352,
+   "lon": -8.455,
+   "coords_from": {
+    "ipma_globalIdLocal": 1080600,
+    "ipma_local": "Lagoa"
+   }
+  },
+  {
+   "id": "lagos",
+   "name": "Lagos",
+   "lat": 37.1039,
+   "lon": -8.6765,
+   "coords_from": {
+    "ipma_globalIdLocal": 1080700,
+    "ipma_local": "Lagos"
+   }
+  },
+  {
+   "id": "loule",
+   "name": "Loulé",
+   "lat": 37.1397,
+   "lon": -8.0202,
+   "coords_from": {
+    "ipma_globalIdLocal": 1080800,
+    "ipma_local": "Loulé"
+   }
+  },
+  {
+   "id": "monchique",
+   "name": "Monchique",
+   "lat": 37.32,
+   "lon": -8.56,
+   "coords_from": {
+    "ipma_globalIdLocal": 1080900,
+    "ipma_local": "Monchique"
+   }
+  },
+  {
+   "id": "olhao",
+   "name": "Olhão",
+   "lat": 37.03,
+   "lon": -7.84,
+   "coords_from": {
+    "ipma_globalIdLocal": 1081000,
+    "ipma_local": "Olhão"
+   }
+  },
+  {
+   "id": "portimao",
+   "name": "Portimão",
+   "lat": 37.15,
+   "lon": -8.52,
+   "coords_from": {
+    "ipma_globalIdLocal": 1081100,
+    "ipma_local": "Portimão"
+   }
+  },
+  {
+   "id": "quarteira",
+   "name": "Quarteira",
+   "lat": 37.0664,
+   "lon": -8.1025,
+   "coords_from": {
+    "ipma_globalIdLocal": 1080823,
+    "ipma_local": "Praia de Quarteira"
+   }
+  },
+  {
+   "id": "sao-bras-de-alportel",
+   "name": "São Brás de Alportel",
+   "lat": 37.15,
+   "lon": -7.89,
+   "coords_from": {
+    "ipma_globalIdLocal": 1081200,
+    "ipma_local": "São Brás de Alportel"
+   }
+  },
+  {
+   "id": "silves",
+   "name": "Silves",
+   "lat": 37.19,
+   "lon": -8.44,
+   "coords_from": {
+    "ipma_globalIdLocal": 1081300,
+    "ipma_local": "Silves"
+   }
+  },
+  {
+   "id": "tavira",
+   "name": "Tavira",
+   "lat": 37.13,
+   "lon": -7.65,
+   "coords_from": {
+    "ipma_globalIdLocal": 1081400,
+    "ipma_local": "Tavira"
+   }
+  },
+  {
+   "id": "vila-do-bispo",
+   "name": "Vila do Bispo",
+   "lat": 37.0828,
+   "lon": -8.9103,
+   "coords_from": {
+    "ipma_globalIdLocal": 1081500,
+    "ipma_local": "Vila do Bispo"
+   }
+  },
+  {
+   "id": "vila-real-de-santo-antonio",
+   "name": "Vila Real de Santo António",
+   "lat": 37.19,
+   "lon": -7.42,
+   "coords_from": {
+    "ipma_globalIdLocal": 1081600,
+    "ipma_local": "Vila Real de Santo António"
+   }
+  }
+ ]
+}

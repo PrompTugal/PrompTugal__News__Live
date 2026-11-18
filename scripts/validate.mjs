@@ -3,7 +3,7 @@
 // (2026-11-16); factory@ added the hub.json fields, the description check and the
 // placeholder check (a seeded site must hold no __SITE_*__ placeholder).
 import { readdirSync, readFileSync, statSync, existsSync } from 'node:fs';
-import { join, dirname } from 'node:path';
+import { join, dirname, sep } from 'node:path';
 const walk = d => readdirSync(d).flatMap(f => { const p = join(d, f); return statSync(p).isDirectory() ? walk(p) : [p]; });
 const problems = [];
 const fail = m => problems.push(m);
@@ -31,6 +31,39 @@ for (const f of [...files, 'hub.json', 'README.md']) {
       if (!existsSync(target) && !existsSync(join(target, 'index.html'))) fail(`${f}: broken link ${u}`);
     }
   }
+}
+// The exact hosts in a page's CSP frame-src.
+const frameHosts = (s) => ((s.match(/frame-src ([^;"]*)/) || [])[1] || '').trim().split(/\s+/).map((t) => t.replace(/^https:\/\//, ''));
+// live.b@PrompTugal.dinis, 2026-11-18: the AppSec checks from the security pre-review of the first version.
+for (const f of files) {
+  const s = readFileSync(f, 'utf8');
+  if (f.endsWith('.html')) {
+    if (!/<meta http-equiv="Content-Security-Policy" content="default-src 'none';[^"]*script-src 'self';[^"]*base-uri 'none'/.test(s)) fail(`${f}: no strict Content Security Policy`);
+    if (/<script(?![^>]*\bsrc=)[^>]*>/i.test(s)) fail(`${f}: inline script`);
+    const tags = s.replace(/"[^"]*"/g, '""'); // attribute values blanked: an escaped value cannot open an attribute
+    if (/<[a-z][^>]*\son[a-z]+\s*=/i.test(tags)) fail(`${f}: inline event handler`);
+    if (/<[a-z][^>]*\sstyle\s*=/i.test(tags)) fail(`${f}: inline style attribute`);
+    if (/<style[\s>]/i.test(s)) fail(`${f}: inline style element`);
+    for (const m of s.matchAll(/(?:href|src)="([^"]*)"/g)) if (/^\s*(javascript|data|vbscript|blob|http):/i.test(m[1])) fail(`${f}: unsafe link scheme`);
+    for (const m of s.matchAll(/<iframe\b[^>]*>/g)) {
+      const t = m[0];
+      if (!/\ssandbox="allow-scripts allow-same-origin allow-presentation"/.test(t)) fail(`${f}: iframe without the sandbox`);
+      if (!/\sreferrerpolicy="no-referrer"/.test(t)) fail(`${f}: iframe without referrerpolicy="no-referrer"`);
+      const src = (t.match(/\ssrc="https:\/\/([^/"]+)/) || [])[1];
+      if (!src || !frameHosts(s).includes(src)) fail(`${f}: iframe host not in the page's frame-src`);
+    }
+    for (const m of s.matchAll(/data-embed-src="https:\/\/([^/"]+)[^"]*" data-embed-host="([^"]+)"/g)) {
+      if (m[1] !== m[2]) fail(`${f}: click-to-load host differs from its URL`);
+      if (!frameHosts(s).includes(m[1])) fail(`${f}: click-to-load host not in the page's frame-src`);
+      if (m[1] === 'promptugal.news' || m[1].endsWith('.promptugal.news')) fail(`${f}: an embed from our own sites`);
+    }
+    if (/data-embed-src="(?!https:\/\/)/.test(s)) fail(`${f}: click-to-load URL not https`);
+  }
+  if (f.endsWith('.js') && /\b(innerHTML|outerHTML|insertAdjacentHTML|document\.write|eval\s*\(|new Function)\b/.test(s)) fail(`${f}: unsafe DOM or eval API`);
+}
+for (const f of ['_site/api/v1/index.json', '_site/api/v1/cameras.json', '_site/api/v1/places/index.json', '_site/api/v1/openapi.json']) if (!existsSync(f)) fail(`missing ${f}`);
+for (const f of files.filter((x) => /^_site\/api\/v1\/(cameras|places)\/.+\.json$/.test(x.split(sep).join('/')))) {
+  try { const d = JSON.parse(readFileSync(f, 'utf8')); if (!d.license || !d.license.url) fail(`${f}: no license link`); } catch { fail(`${f}: not JSON`); }
 }
 if (!existsSync('_site/version.json')) fail('no version.json');
 if (!existsSync('_site/index.html')) fail('no index.html');

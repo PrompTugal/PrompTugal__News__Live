@@ -1,0 +1,31 @@
+<!-- title: How this site works: PrompTugal.news Live -->
+<!-- description: How PrompTugal.news Live is built: who finds the cameras, what is read, how often, what is kept, the threat models and the API. -->
+<h1>How this site works</h1>
+<h2>Who does what</h2>
+<ul>
+<li><strong>data.b@PrompTugal.dinis</strong>, an AI agent, finds the cameras, checks each operator's terms, registers them on <a href="https://data.promptugal.news/">data.promptugal.news</a> and checks whether each is up (a request to the operator's public page, never to a frame or stream).</li>
+<li><strong>live.b@PrompTugal.dinis</strong>, an AI agent, builds this site from that register: the map, a page per place and per camera, and the API. Both are run by Dinis Cruz, who alone instructs them.</li>
+</ul>
+<h2>What happens at each build</h2>
+<ol>
+<li>The build (code, no model) reads the camera register and each camera's status history from data.promptugal.news, and the weather for each place from its <code>/api/v1/by-place/now/</code> files. Only that host is read, over https, with a time limit and a size limit.</li>
+<li>Every value read is treated as untrusted text: it is checked against the fields we expect, cut to length, escaped before it reaches a page, and every link must be https. A record without a named operator, an operator page, or checked terms is left out.</li>
+<li>A camera is embedded only when the register says embedding is allowed, the operator's terms as checked say so, and the embed's host is on <a href="/data/operator-hosts.json">our reviewed list of operator hosts</a>. Otherwise its page links to the operator. The player loads only when the reader presses its button, and each page's Content Security Policy allows frames only from that one host.</li>
+<li>The site is rebuilt on every release and every three hours. In your browser, the status of each camera is refreshed from the register when it can be read.</li>
+</ol>
+<h2>What we keep</h2>
+<p>Metadata only: the files under <a href="/api/">/api/</a>. No picture, frame, snapshot or stream is fetched by the build, kept in this repository or served from this site.</p>
+<h2>Threat models</h2>
+<ul>
+<li><a href="https://github.com/PrompTugal/PrompTugal__News__Live/blob/dev/docs/threat-models/build-and-register.md">The build and the register it reads</a></li>
+<li><a href="https://github.com/PrompTugal/PrompTugal__News__Live/blob/dev/docs/threat-models/scheduled-rebuild.md">The scheduled rebuild</a></li>
+<li><a href="https://github.com/PrompTugal/PrompTugal__News__Live/blob/dev/docs/threat-models/embeds-and-browser.md">Embeds and the browser</a></li>
+</ul>
+<h2>Keys</h2>
+<p>This site's agent signs its releases with its own key; the public half is at <a href="/keys.json">/keys.json</a>.</p>
+<h2>Sources</h2>
+<ul>
+<li>The camera register and status: <a href="https://data.promptugal.news/api/v1/cameras/index.json">data.promptugal.news/api/v1/cameras/</a> (each camera under its operator's terms, linked on its page).</li>
+<li>The weather: IPMA's open data, as collected by <a href="https://data.promptugal.news/api/v1/by-place/now/index.json">data.promptugal.news</a>, under <a href="https://api.ipma.pt/">IPMA's terms</a>.</li>
+<li>The places' positions on the map: <a href="https://api.ipma.pt/public-data/forecast/locations.json">IPMA's list of forecast locations</a>, read on 18 November 2026 and kept in <a href="/data/places.json">/data/places.json</a>.</li>
+</ul>

@@ -1,0 +1,8 @@
+{
+ "about": "Hosts from which live.promptugal.news may embed an operator's own player. A camera is embedded only when data.promptugal.news's register says embedding is allowed, its terms say so, and its embed URL's host is listed here. live.b@PrompTugal.dinis adds a host by hand after reading that operator's terms; each entry names the operator, the terms URL and the date read. Empty means every camera is a link out.",
+ "license": {
+  "name": "CC BY 4.0",
+  "url": "https://creativecommons.org/licenses/by/4.0/"
+ },
+ "hosts": []
+}

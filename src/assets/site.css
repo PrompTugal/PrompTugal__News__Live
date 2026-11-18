@@ -1,0 +1,63 @@
+/* Copied on 2026-11-18 by live.b@PrompTugal.dinis from https://data.promptugal.news/assets/site.css (PrompTugal.news, Apache-2.0); live.css adds what this site needs. */
+/* data.promptugal.news: layout and colour (data.dev@PrompTugal.dinis). Brand v2.0 tokens come from brand/brand-tokens.css; fonts fall back to the stacks. */
+:root { --paper: var(--brand-paper, #f6f3ec); --ink: var(--brand-ink, #121317); --red: #c52830; --green: #006600; --rule: #d8d4cb; --muted: #5c5e56; --panel: #ece8de; --link: #006600; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --paper: #121317; --ink: #f6f3ec; --red: #f07278; --green: #6dbb7e; --rule: #44453f; --muted: #b4b6ad; --panel: #1b1d22; --link: #6dbb7e; } }
+:root[data-theme="dark"] { --paper: #121317; --ink: #f6f3ec; --red: #f07278; --green: #6dbb7e; --rule: #44453f; --muted: #b4b6ad; --panel: #1b1d22; --link: #6dbb7e; }
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: var(--paper); color: var(--ink); font: 17px/1.6 var(--font-interface, Arial, sans-serif); }
+a { color: var(--link); text-underline-offset: 2px; }
+a:focus-visible { outline: 3px solid var(--red); outline-offset: 2px; }
+.skip { position: absolute; left: -999px; } .skip:focus { left: 8px; top: 8px; background: var(--paper); padding: 8px; z-index: 9; }
+.mast { border-bottom: 3px solid var(--red); padding: 12px 16px 8px; }
+.mast-in, .mast-meta, main, .foot { max-width: 64rem; margin: 0 auto; }
+.mast-in { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 24px; }
+.brand { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; color: var(--ink); }
+.brand img { height: 33px; width: auto; max-width: 62vw; }
+.brand-data { font: 600 1rem var(--font-meta, monospace); color: var(--red); }
+nav { display: flex; flex-wrap: wrap; gap: 4px 16px; }
+nav a { color: var(--ink); text-decoration: none; padding: 4px 0; border-bottom: 2px solid transparent; }
+nav a:hover, nav a[aria-current] { border-bottom-color: var(--red); }
+.mast-meta { display: flex; flex-wrap: wrap; gap: 4px 16px; margin-top: 8px; font: .8rem var(--font-meta, monospace); color: var(--muted); }
+.mast-meta a { color: var(--link); font-weight: 600; }
+main { padding: 8px 16px 32px; }
+h1, h2, h3 { font-family: var(--font-editorial, Georgia, serif); line-height: 1.2; }
+h1 { font-size: 2rem; margin: 1.2rem 0 .6rem; } h2 { font-size: 1.4rem; margin: 2rem 0 .4rem; border-top: 1px solid var(--rule); padding-top: 1rem; } h3 { font-size: 1.1rem; margin: 1.2rem 0 .2rem; }
+code, pre { font-family: var(--font-meta, monospace); font-size: .85rem; }
+code { background: var(--panel); padding: 1px 4px; border-radius: 3px; overflow-wrap: anywhere; }
+pre { background: var(--panel); padding: 12px; overflow-x: auto; border-radius: 4px; } pre code { background: none; padding: 0; overflow-wrap: normal; }
+blockquote { margin: 1rem 0; padding: .2rem 1rem; border-left: 4px solid var(--red); background: var(--panel); }
+blockquote footer { font-size: .85rem; color: var(--muted); margin-bottom: .6rem; }
+.scroll { overflow-x: auto; margin: 1rem 0; }
+table { border-collapse: collapse; width: 100%; font-size: .9rem; }
+th, td { text-align: left; vertical-align: top; padding: 6px 10px; border-bottom: 1px solid var(--rule); overflow-wrap: anywhere; }
+th { font: 600 .8rem var(--font-meta, monospace); text-transform: uppercase; letter-spacing: .03em; color: var(--muted); }
+table.kv th:first-child, table.kv td:first-child { width: 11rem; font-weight: 600; }
+.foot { padding: 16px; border-top: 1px solid var(--rule); font-size: .85rem; color: var(--muted); }
+@media (max-width: 40rem) { body { font-size: 16px; } h1 { font-size: 1.6rem; } table.kv th:first-child, table.kv td:first-child { width: 7rem; } }
+/* data.b@PrompTugal.dinis, 18 Nov 2026: the masthead chip and the sites rail, after PrompTugal__News__Website assets/top/top.css and assets/meter/meter.css */
+.pay-chip { display: inline-flex; gap: 4px; align-items: center; border: 1px solid var(--green); border-radius: 999px; padding: 1px 10px; text-decoration: none; color: var(--green); white-space: nowrap; }
+.pay-chip b { font-weight: 700; }
+.pay-chip:hover { background: var(--panel); }
+.em-net { position: fixed; right: 0; top: 50%; transform: translateY(-50%); z-index: 20; display: flex; flex-direction: column; gap: 2px; padding: 8px 6px; background: var(--paper); border: 1px solid var(--rule); border-right: 0; border-radius: 10px 0 0 10px; font: 600 12px var(--font-interface, Arial, sans-serif); }
+.em-net span { writing-mode: vertical-rl; transform: rotate(180deg); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: var(--green); align-self: center; margin-bottom: 6px; }
+.em-net a { color: var(--ink); text-decoration: none; padding: 5px 6px; border-radius: 6px; border: 0; }
+.em-net a:hover, .em-net a:focus-visible, .em-net a[aria-current] { background: var(--panel); }
+@media (max-width: 1180px) { .em-net { position: static; transform: none; flex-direction: row; flex-wrap: wrap; justify-content: center; border: 0; border-bottom: 1px solid var(--rule); border-radius: 0; padding: 4px 16px; } .em-net span { writing-mode: horizontal-tb; transform: none; margin: 0 6px 0 0; } }
+.nr-graph { width: 100%; height: auto; background: var(--paper); border: 1px solid var(--rule); border-radius: 10px; }
+.nr-graph .g-link { stroke: var(--rule); stroke-width: 1; } .nr-graph .g-read { stroke: var(--red); stroke-width: 1.2; stroke-dasharray: 3 3; opacity: .6; }
+.nr-graph .g-concept { fill: var(--paper); stroke: var(--ink); stroke-width: 1.5; } .nr-graph .g-label { font: 600 12px var(--font-interface, Arial, sans-serif); fill: var(--ink); }
+.nr-graph .g-data { fill: #1a4fa0; } .nr-graph .g-site { fill: var(--muted); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .nr-graph .g-data { fill: #7aa7e8; } }
+.viz-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 28rem), 1fr)); gap: 8px 24px; }
+.viz-cell h3 { margin-top: .8rem; }
+.viz-cell > p { margin: .2rem 0 1rem; font-size: .85rem; }
+main:has(.viz-grid) { max-width: 80rem; }
+/* the pipeline diagram (data.b@, 18 Nov 2026) */
+.pl-fig svg { width: 100%; height: auto; }
+.pl-box rect { fill: var(--panel); stroke: var(--rule); stroke-width: 1.5; }
+.pl-ok rect { stroke: var(--green); stroke-width: 2; } .pl-bad rect { stroke: var(--red); stroke-width: 2; stroke-dasharray: 6 4; } .pl-ai rect { stroke: #7a4fbf; stroke-width: 2; }
+.pl-t { font: 700 14px var(--font-interface, Arial, sans-serif); fill: var(--ink); } .pl-s { font: 12px var(--font-interface, Arial, sans-serif); fill: var(--muted); }
+.pl-a { stroke: var(--ink); stroke-width: 1.5; } .pl-a.pl-bad { stroke: var(--red); stroke-dasharray: 6 4; } .pl-a.pl-ai { stroke: #7a4fbf; } .pl-h { fill: var(--ink); }
+.pl-k { font: 12px var(--font-interface, Arial, sans-serif); fill: var(--ink); }
+blockquote footer a, blockquote a { overflow-wrap: anywhere; }

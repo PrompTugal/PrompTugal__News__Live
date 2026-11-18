@@ -87,11 +87,14 @@ function highEntropy(line) {
 
 // Narrow allowlist: [path, kind, reason]. Keep each entry to one file and one kind.
 const ALLOW = [
-  // (none yet)
+  // live.b@PrompTugal.dinis, 2026-11-18: the build copies team/keys.json to _site/keys.json so the public keys
+  // are served on the site (Dinis, 18 Nov 2026, about 14:55 UTC: "publishing their keys, public keys, into the
+  // website"). The source file is checked as a public key file; this allows the copy's public blocks only.
+  ['_site/keys.json', 'public key outside team/keys', 'served copy of team/keys.json'],
 ];
 const allowed = (path, kind) => ALLOW.some(([p, k]) => p === path && k === kind);
 
-const PUBLIC_KEY_FILES = (p) => p === 'team/keys.json' || /^team\/keys\/[a-z0-9-]+\.json$/.test(p);
+const PUBLIC_KEY_FILES = (p) => p === 'team/keys.json' || p === '_site/keys.json' || /^team\/keys\/[a-z0-9-]+\.json$/.test(p);
 
 // Returns a list of {line, kind} for one file's text. Never returns the match.
 export function scanText(path, text) {

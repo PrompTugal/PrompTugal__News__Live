@@ -1,0 +1,14 @@
+<!-- title: API: PrompTugal.news Live -->
+<!-- description: The JSON API of PrompTugal.news Live: every camera and place as plain GET files, with an OpenAPI 3.1 description. -->
+<h1>API</h1>
+<p>Everything on this site is first a JSON file, read by GET, with no key. Metadata only: never a frame, snapshot or stream. Our structure and records are CC BY 4.0; each camera stays under its operator's terms, linked in its record.</p>
+<div class="scroll"><table><thead><tr><th>GET</th><th>What</th></tr></thead><tbody>
+<tr><td><a href="/api/v1/index.json">/api/v1/index.json</a></td><td>The catalogue, and when the register was read</td></tr>
+<tr><td><a href="/api/v1/cameras.json">/api/v1/cameras.json</a></td><td>Every camera: operator, place, view (embed or link), terms, licence, status</td></tr>
+<tr><td><code>/api/v1/cameras/{id}.json</code></td><td>One camera with its status history</td></tr>
+<tr><td><a href="/api/v1/places/index.json">/api/v1/places/index.json</a></td><td>Every place, each with "the camera here" (an embedded camera up at the last check, else any up, else the first), for the weather, travel and place pages</td></tr>
+<tr><td><code>/api/v1/places/{place}.json</code></td><td>One place, e.g. <a href="/api/v1/places/faro.json">faro</a></td></tr>
+<tr><td><a href="/api/v1/openapi.json">/api/v1/openapi.json</a></td><td>The OpenAPI 3.1 description of all of it</td></tr>
+<tr><td><a href="/version.json">/version.json</a></td><td>The version of this build</td></tr>
+</tbody></table></div>
+<p>The camera register itself is on <a href="https://data.promptugal.news/api/">data.promptugal.news's API</a>, with <a href="https://data.promptugal.news/api/swagger/">its explorer</a>.</p>

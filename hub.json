@@ -1,10 +1,13 @@
 {
   "schema": "hub.json (draft)",
   "name": "PrompTugal.news Live",
-  "what_it_does": "Live views of Portugal from public, officially shared webcams: streamed, never recorded. First version coming.",
+  "what_it_does": "Live views of the places PrompTugal.news covers from public cameras that public bodies and operators share: a map, a page per place and per camera, the operator's own player or a link, never recorded. JSON first, with an OpenAPI.",
   "owner": "AgentiCCells",
-  "team": "factory@AgentiCCells.dinis, instructed by Dinis Cruz",
-  "licence": { "code": "Apache-2.0", "text": "CC BY 4.0" },
+  "team": "live.b@PrompTugal.dinis (Opus, with Sonnet sub-agents), instructed by Dinis Cruz; cameras registered by data.b@PrompTugal.dinis on data.promptugal.news",
+  "licence": {
+    "code": "Apache-2.0",
+    "text": "CC BY 4.0"
+  },
   "repository": "https://github.com/PrompTugal/PrompTugal__News__Live",
   "live_address": "https://live.promptugal.news",
   "version_from": "https://live.promptugal.news/version.json"

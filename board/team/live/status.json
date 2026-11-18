@@ -1,0 +1,50 @@
+{
+ "agent": "live.b@PrompTugal.dinis",
+ "site": "https://live.promptugal.news",
+ "updated": "2026-11-18T19:45Z",
+ "state": "first version built; releasing to dev",
+ "brief": "conductor.b@PrompTugal.dinis at Dinis's word, 18 Nov 2026 (Dinis, about 17:30 UTC: a site 'to list and show the live video feeds of public cameras that exist in the regions/cities we cover ... with the data, location and other data/stats captured by the data site/team')",
+ "inner_passes": {
+  "opening_conductor": "ran (Sonnet): plan inside the brief; flagged the agent-name conflict and the missing pieces, all added",
+  "security_pre_review": "ran (Sonnet): ten requirements, all built in",
+  "appsec_post_review": "ran (Sonnet) on the diff: no escaping gaps; 2 medium (slow-register build time, an emptied register blanking the site), 5 low, 3 info; all fixed except action pinning (recorded)",
+  "closing_conductor": "ran (Sonnet), see the commit"
+ },
+ "done": [
+  "The site: a map of the Algarve (self-drawn SVG, places from IPMA's locations list), a page per place (18 plus any place the register names) and per camera, /how/, /principles/, /security/, /api/ with /api/v1/*.json and an OpenAPI 3.1, the take-down disclaimer on every page, the masthead chip and sites rail",
+  "Reads data.promptugal.news's camera register (3 cameras at 18:55 UTC: two APL Tejo Live in Lisboa, one AEMTG Praia da Rocha in Portimão), every one a link out: none has embedding allowed",
+  "Gates: strict CSP and iframe rules, no inline script, handler or style, no unsafe DOM API (validate.mjs); a hostile-register test; the commit check accepts role@PrompTugal.dinis; the served public key copy allowed narrowly in the leak scan",
+  "A scheduled rebuild every three hours that keeps the version and never tags; a failed register read fails the CI build",
+  "Key made with sgit pki keygen (pki-agent.mjs not tried: sgit is the guidance's fallback and is installed); public bundle in team/keys.json, served at /keys.json",
+  "Threat models: docs/threat-models/ (build and register, scheduled rebuild, embeds and the browser)",
+  "Click-to-load embeds (the YouTube flow) and a provenance block on every camera record and page, after Dinis's 19:00 UTC word"
+ ],
+ "next": [
+  "Review each new register entry at every wake; add an operator host to src/data/operator-hosts.json only after reading that operator's terms",
+  "obs.js with a lane of its own, once the lane is issued",
+  "A coastline on the map from a public-domain source (Natural Earth), recorded with its licence"
+ ],
+ "asks": [
+  "Dinis: this repository's CLAUDE.md says agents are named role@AgentiCCells.person, but my brief names me live.b@PrompTugal.dinis. I widened the commit check (additively) to accept role@PrompTugal.dinis, after your 02:30 UTC word for the five site repositories. Is that right for this repository too, and should CLAUDE.md say so?",
+  "Dinis: the masthead chip says 'Pay for what you read · free here'. Is this site free, outside the meter, until you decide?"
+ ],
+ "asks_of_agents": [
+  {
+   "to": "data.b@PrompTugal.dinis",
+   "what": "the camera register: answered within the hour (/api/v1/cameras/index.json, 3 cameras); next, more Algarve cameras of public bodies, and place coordinates in by-place/now",
+   "when": "2026-11-18T18:10Z"
+  },
+  {
+   "to": "conductor.b@PrompTugal.dinis",
+   "what": "list live.b-promptugal in PrompTugal__News__Website board/keys.json (bundle in team/keys.json); an observability lane for live",
+   "when": "2026-11-18"
+  }
+ ],
+ "answers": [],
+ "library_requests": "read 2026-11-18 about 18:05 UTC: none to live.b@",
+ "prompt_injection_seen": "none",
+ "debrief": "board/team/live/debriefs/2026-11-18-handover.md",
+ "answered_by_dinis": [
+  "2026-11-18 about 19:00 UTC (PrompTugal__News__Website board/guidance/2026-11-18-cameras-provenance-and-bulletins.md): the camera rules confirmed; MEO BeachCam through its official embeds and Windy's webcams API, attributed, may be listed; the YouTube flow (built here as click-to-load); provenance on every item (added to each camera record and page)"
+ ]
+}

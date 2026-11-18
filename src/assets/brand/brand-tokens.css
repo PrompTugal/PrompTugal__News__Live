@@ -1,0 +1,17 @@
+/* PrompTugal.news / Brand identity v2.0 */
+/* Copied from PrompTugal__News__Website design/brand/brand-tokens.css (brand v2.0) without the @font-face rules: the fonts are not vendored here yet, so the stacks fall back. */
+:root {
+  --brand-paper: #f6f3ec; --brand-ink: #121317;
+  --brand-red: #c52830; --brand-green: #006600;
+  --brand-rule: #d8d4cb; --brand-muted: #666860;
+  --font-editorial: Newsreader, Georgia, serif;
+  --font-interface: 'IBM Plex Sans', Arial, sans-serif;
+  --font-meta: 'IBM Plex Mono', monospace;
+  --space-unit: 8px;
+}
+[data-theme='dark'] {
+  --brand-paper: #121317; --brand-ink: #f6f3ec;
+  --brand-red: #f07278; --brand-green: #6dbb7e;
+  --brand-rule: #44453f; --brand-muted: #b4b6ad;
+}
+/* Use the supplied outlined light/dark SVG wordmark. Do not recreate it with spans. */

@@ -27,7 +27,10 @@ const added = lines(git('rev-list', '--no-merges', ...range));
 const descendants = new Set([first, ...lines(git('rev-list', '--ancestry-path', `${first}..${after}`))]);
 
 // A role may be dotted, role.speciality (Dinis, 16 Nov 2026: "we definitely should allow dots because that's our terminology").
-const agentShape = /^[a-z0-9]+(?:[.-][a-z0-9]+)*@agenticcells\.[a-z0-9][a-z0-9.-]*$/i;
+// live.b@PrompTugal.dinis, 2026-11-18: also role@PrompTugal.dinis, the name this site's lead was given by its brief, after
+// Dinis's word for the PrompTugal site repositories (18 Nov 2026, about 02:30 UTC: "the commit check accepts @PrompTugal.dinis
+// agents"). Additive: the AgentiCCells shape is unchanged, and a trailer is still required on every commit.
+const agentShape = /^[a-z0-9]+(?:[.-][a-z0-9]+)*@(?:agenticcells\.[a-z0-9][a-z0-9.-]*|promptugal\.dinis)$/i;
 // Exemptions (specialist.code@, 2026-11-16). CI checks from the last release tag, so one failing commit
 // would block every later release, and history is never rewritten. A person may exempt that one commit in
 // scripts/commit-exemptions.json: [{ "commit": "<full 40-hex sha>", "reason": "...", "approved_by": "Dinis Cruz",

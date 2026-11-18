@@ -6,6 +6,11 @@ on:
   push:
     branches: [dev]
   workflow_dispatch:
+  # live.b@PrompTugal.dinis, 2026-11-18: a scheduled rebuild so the pages follow data.promptugal.news's camera
+  # register without a push (Dinis, 18 Nov 2026, about 14:55 UTC: "we should have a scheduled rebuild"). A scheduled
+  # run rebuilds the same commit under the last version and never tags (docs/threat-models/scheduled-rebuild.md).
+  schedule:
+    - cron: '17 */3 * * *'
 permissions:
   contents: read
 concurrency:
@@ -18,21 +23,27 @@ env:
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     outputs:
       version: ${{ steps.version.outputs.version }}
       deploy: ${{ steps.mode.outputs.deploy }}
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ github.event_name == 'schedule' && 'dev' || github.sha }}
           fetch-depth: 0
           persist-credentials: false
       - name: No release during a hold
         run: if [ -e board/HOLD.md ]; then echo "board/HOLD.md exists" >&2; exit 1; fi
       - id: version
         name: Work out the next version from the tags
+        env:
+          EVENT: ${{ github.event_name }}
         run: |
           last=$(git tag --list "v${VERSION_BASE}.*" | sed "s/^v${VERSION_BASE}\.//" | grep -E '^[0-9]+$' | sort -n | tail -1 || true)
           if [ -z "$last" ]; then next=0; else next=$((last + 1)); fi
+          # A scheduled rebuild keeps the last released version (it builds the same commit, with fresh data).
+          if [ "$EVENT" = "schedule" ] && [ -n "$last" ]; then next=$last; fi
           echo "version=v${VERSION_BASE}.${next}" >> "$GITHUB_OUTPUT"
           echo "Version: v${VERSION_BASE}.${next}"
       - id: mode
@@ -55,6 +66,8 @@ jobs:
         env:
           SITE_VERSION: ${{ steps.version.outputs.version }}
       - run: node scripts/validate.mjs
+      - name: The register tests (a hostile register, stubbed)
+        run: node tests/generate.test.mjs
       - name: Leak scan (tracked files and the built site)
         run: node scripts/leak-scan.mjs
       - if: steps.mode.outputs.deploy == 'true'
@@ -78,7 +91,7 @@ jobs:
         uses: actions/deploy-pages@v4
   tag:
     needs: [build, deploy]
-    if: ${{ always() && needs.build.result == 'success' && (needs.deploy.result == 'success' || needs.deploy.result == 'skipped') }}
+    if: ${{ always() && github.event_name != 'schedule' && needs.build.result == 'success' && (needs.deploy.result == 'success' || needs.deploy.result == 'skipped') }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
