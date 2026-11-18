@@ -1,7 +1,7 @@
 {
  "agent": "live.b@PrompTugal.dinis",
  "site": "https://live.promptugal.news",
- "updated": "2026-11-18T22:24Z",
+ "updated": "2026-11-18T22:28Z",
  "state": "embed-first site built; 0 of 22 registered cameras have an allowed embed, so the map is empty until data.b@ finds embeddable sources",
  "brief": "conductor.b@PrompTugal.dinis at Dinis's word, 18 Nov 2026 (Dinis, about 17:30 UTC: a site 'to list and show the live video feeds of public cameras that exist in the regions/cities we cover ... with the data, location and other data/stats captured by the data site/team')",
  "inner_passes": {
@@ -25,6 +25,7 @@
   "22:24 UTC, at Dinis's word: embed-only map and list, map click loads the operator's player, /embed/<id>/ pages, view.embed_page in the API"
  ],
  "next": [
+  "Image and video views for JamCams (img/video from TfL's S3 path /jamcams.tfl.gov.uk/ on s3-eu-west-1.amazonaws.com: exact host and path prefix, img-src/media-src for that page only, loaded on press, never stored), once TfL's terms are read; YouTube embeds via www.youtube-nocookie.com once data.b@ confirms each by oEmbed",
   "Install the sites bar once dev@ and designer@ publish it: vendor its code pinned by version and sha256, render promptugal.news/api/v1/sites.json escaped with https *.promptugal.news links only, replace the sites rail",
   "London (when data.b@ registers TfL JamCams): raise the 500-camera cap and keep per-camera history reads within the time budget; a map per area (the Algarve, Lisboa, London) instead of one box; a TfL image view only from a reviewed exact host under img-src for that page, click-to-load, never stored; 'Beyond Portugal: London' as the label (Dinis's to change); 'Powered by TfL Open Data' attribution and the Open Government Licence link on each camera",
   "Review each new register entry at every wake; add an operator host to src/data/operator-hosts.json only after reading that operator's terms",
@@ -32,7 +33,7 @@
   "Check that the three-hourly scheduled rebuild fires (none had at 22:08 UTC); if not, ask devops or Dinis"
  ],
  "asks": [
-  "Dinis: the fastest embeddable sources need two things from you: (1) a free Windy Webcams API key (its player is an official embed, attributed), entered through the secure form for data.b@; (2) a YouTube Data API key to find câmaras' and operators' official live streams (YouTube's embed is official when the owner allows it). And: may outreach@ draft a request to MEO for its BeachCam embeds, for a person to send?",
+  "Dinis: TfL's transport data terms (tfl.gov.uk/corporate/terms-and-conditions/transport-data-service) answer agents with a bot check, so neither data.b@ nor I can read them, and no JamCam is embeddable until they are read. Could you read the page in your browser and tell us what it says about showing JamCam images and videos on other sites (attribution, conditions)? And: may outreach@ draft a request to MEO for its BeachCam embeds, for a person to send?",
   "Dinis: may live.promptugal.news's observability config (src/assets/obs/obs.json: append-only lane tokens and the drain's public key, as on civic, where you said 'Those tokens are public by design') have the same narrow leak-scan allowlist entry here? Until you say, I have not made the lane or added obs.js.",
   "Dinis: this repository's CLAUDE.md says agents are named role@AgentiCCells.person, but my brief names me live.b@PrompTugal.dinis. I widened the commit check (additively) to accept role@PrompTugal.dinis, after your 02:30 UTC word for the five site repositories. Is that right for this repository too, and should CLAUDE.md say so?",
   "Dinis: the masthead chip says 'Pay for what you read · free here'. Is this site free, outside the meter, until you decide?"
@@ -76,5 +77,8 @@
    "words": "you can only have sources that we can actually embed on our environment ... we want to embed the stream into our website, crediting them, of course, with the link to them, but embed them, for example, in multiple websites ... in the map, I should be able to click on it and see actually the camera live",
    "ours": "done on the site: embed-only map and list, click on the map loads the player, /embed/<id>/ for other sites; the sources with allowed embeds asked of data.b@"
   }
+ ],
+ "notes": [
+  "Windy is on hold: keyless sources only for now (Dinis, about 22:25 UTC, as relayed by data.b@)"
  ]
 }
