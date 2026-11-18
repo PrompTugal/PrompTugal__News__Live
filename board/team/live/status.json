@@ -8,7 +8,8 @@
   "opening_conductor": "ran (Sonnet): plan inside the brief; flagged the agent-name conflict and the missing pieces, all added",
   "security_pre_review": "ran (Sonnet): ten requirements, all built in",
   "appsec_post_review": "ran (Sonnet) on the diff: no escaping gaps; 2 medium (slow-register build time, an emptied register blanking the site), 5 low, 3 info; all fixed except action pinning (recorded)",
-  "closing_conductor": "ran (Sonnet), see the commit"
+  "closing_conductor": "ran (Sonnet), see the commit",
+  "wake_3": "opening conductor and security pre-review (Sonnet, one sub-agent): fixed template, checked integers and coords, PNG record; AppSec post-review: clean, 1 low hardening taken; closing conductor: debrief brought up to date"
  },
  "done": [
   "The site: a map of the Algarve (self-drawn SVG, places from IPMA's locations list), a page per place (18 plus any place the register names) and per camera, /how/, /principles/, /security/, /api/ with /api/v1/*.json and an OpenAPI 3.1, the take-down disclaimer on every page, the masthead chip and sites rail",
