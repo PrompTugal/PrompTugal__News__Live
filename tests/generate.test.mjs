@@ -51,6 +51,8 @@ check(JSON.parse(read('api/v1/places/algarve.json')).place.cameras.length === 5,
 check(!read('cameras/own-site/index.html').includes('data-embed-src'), 'no embed from our own sites, even if allow-listed');
 check(!existsSync(join(out, 'cameras/relative-link')), 'a site-relative or port URL from the data is not a link');
 check(JSON.parse(read('api/v1/cameras/good-embed.json')).camera.status_history.startsWith('https://data.promptugal.news/'), 'API: status_history absolute');
+const home = read('index.html');
+check(/<path class="m-coast" d="M[0-9. LM-]+"><\/path>/.test(home), 'coastline drawn as numbers-only paths');
 const api = JSON.parse(read('api/v1/places/faro.json'));
 check(api.place.camera_here && api.place.camera_here.id === 'good-embed', 'the camera here is the embedded one that is up');
 const c = JSON.parse(read('api/v1/cameras/not-listed-host.json'));

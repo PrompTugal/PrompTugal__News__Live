@@ -2,7 +2,7 @@
  "about": "The places live.promptugal.news covers: the 18 places with a now file on data.promptugal.news (https://data.promptugal.news/api/v1/by-place/now/index.json, read 2026-11-18). Names written by live.b@PrompTugal.dinis. Coordinates: IPMA's list of forecast locations, one point per municipality (Quarteira: IPMA's point for Praia de Quarteira), used only to place dots on the map.",
  "coords_source": {
   "url": "https://api.ipma.pt/public-data/forecast/locations.json",
-  "read_at": "2026-11-18T18:20Z",
+  "read_at": "2026-11-18",
   "holder": "IPMA, Instituto Português do Mar e da Atmosfera",
   "license": {
    "name": "the source's terms",

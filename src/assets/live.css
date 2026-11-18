@@ -6,6 +6,7 @@
 .map svg { width: 100%; height: auto; border: 1px solid var(--rule); border-radius: 8px; }
 .map figcaption { font-size: .8rem; color: var(--muted); margin-top: .3rem; }
 .m-sea { fill: var(--panel); }
+.m-coast { fill: none; stroke: var(--muted); stroke-width: 2; stroke-linejoin: round; }
 .m-place { fill: var(--paper); stroke: var(--ink); stroke-width: 1.5; }
 .m-label { font: 600 13px var(--font-interface, Arial, sans-serif); fill: var(--ink); }
 .m-cam { stroke: var(--ink); stroke-width: 1; }
@@ -23,3 +24,4 @@
 .embed-load { font: 700 1rem var(--font-interface, Arial, sans-serif); padding: 10px 18px; border-radius: 999px; border: 2px solid var(--green); background: var(--paper); color: var(--green); cursor: pointer; }
 .embed-load:hover, .embed-load:focus-visible { background: var(--green); color: var(--paper); }
 .embed-note { font-size: .85rem; color: var(--muted); max-width: 32rem; margin: 0; }
+.m-end { text-anchor: end; }

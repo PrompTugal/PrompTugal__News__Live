@@ -61,6 +61,10 @@ for (const f of files) {
   }
   if (f.endsWith('.js') && /\b(innerHTML|outerHTML|insertAdjacentHTML|document\.write|eval\s*\(|new Function)\b/.test(s)) fail(`${f}: unsafe DOM or eval API`);
 }
+for (const f of ['_site/data/coastline.json', '_site/data/places.json', '_site/data/operator-hosts.json']) {
+  try { const d = JSON.parse(readFileSync(f, 'utf8')); if (!d.license || !d.license.url) fail(`${f}: no license link`); } catch { fail(`${f}: missing or not JSON`); }
+}
+if (existsSync('_site/data/coastline.json') && statSync('_site/data/coastline.json').size > 50000) fail('_site/data/coastline.json: over 50 KB');
 for (const f of ['_site/api/v1/index.json', '_site/api/v1/cameras.json', '_site/api/v1/places/index.json', '_site/api/v1/openapi.json']) if (!existsSync(f)) fail(`missing ${f}`);
 for (const f of files.filter((x) => /^_site\/api\/v1\/(cameras|places)\/.+\.json$/.test(x.split(sep).join('/')))) {
   try { const d = JSON.parse(readFileSync(f, 'utf8')); if (!d.license || !d.license.url) fail(`${f}: no license link`); } catch { fail(`${f}: not JSON`); }

@@ -124,10 +124,26 @@ function weatherHtml(w, placeId, placeName) {
 // ---------- the map (self-drawn SVG: no tiles, no third party) ----------
 const BOX = { w: 900, h: 340, lon0: -9.1, lon1: -7.05, lat0: 36.93, lat1: 37.53 };
 const xy = (lat, lon) => [((lon - BOX.lon0) / (BOX.lon1 - BOX.lon0)) * BOX.w, ((BOX.lat1 - lat) / (BOX.lat1 - BOX.lat0)) * BOX.h];
+// The coastline (src/data/coastline.json, Natural Earth): numbers only, each coerced and checked; the path is built
+// from the letters M and L and toFixed numbers, never from text in the file.
+function coastPaths() {
+  let doc;
+  try { doc = JSON.parse(readFileSync('src/data/coastline.json', 'utf8')); } catch { return ''; }
+  const lines = Array.isArray(doc.lines) ? doc.lines.slice(0, 200) : [];
+  return lines.map((line) => {
+    const pts = (Array.isArray(line) ? line.slice(0, 5000) : []).map((p) => [Number(p?.[0]), Number(p?.[1])]).filter(([lon, lat]) => Number.isFinite(lon) && Number.isFinite(lat) && Math.abs(lon) <= 180 && Math.abs(lat) <= 90);
+    if (pts.length < 2) return '';
+    const d = pts.map(([lon, lat], i) => { const [x, y] = xy(lat, lon); return `${i ? 'L' : 'M'}${x.toFixed(1)} ${y.toFixed(1)}`; }).join(' ');
+    return `<path class="m-coast" d="${d}"></path>`;
+  }).join('\n');
+}
+const LABEL_DY = { lagoa: 18 }; // Lagoa's label below its dot, clear of Portimão's
 function mapSvg(places, cameras) {
   const dots = places.filter((p) => p.lat).map((p) => {
     const [x, y] = xy(p.lat, p.lon);
-    return `<a href="/places/${p.id}/"><circle class="m-place" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="5"></circle><text class="m-label" x="${(x + 8).toFixed(1)}" y="${(y + 4).toFixed(1)}">${esc(p.name)}</text></a>`;
+    const end = x > BOX.w * 0.8; // labels near the right edge sit to the left of their dot
+    const dy = LABEL_DY[p.id] || 4;
+    return `<a href="/places/${p.id}/"><circle class="m-place" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="5"></circle><text class="m-label${end ? ' m-end' : ''}" x="${(end ? x - 8 : x + 8).toFixed(1)}" y="${(y + dy).toFixed(1)}">${esc(p.name)}</text></a>`;
   }).join('\n');
   const cams = cameras.filter((c) => c.lat !== null && c.lon !== null).map((c) => {
     const [x, y] = xy(c.lat, c.lon);
@@ -136,9 +152,10 @@ function mapSvg(places, cameras) {
   }).join('\n');
   return `<figure class="map"><svg viewBox="0 0 ${BOX.w} ${BOX.h}" role="img" aria-labelledby="map-t"><title id="map-t">The Algarve: the places we cover (circles) and the registered cameras (squares)</title>
 <rect class="m-sea" x="0" y="0" width="${BOX.w}" height="${BOX.h}"></rect>
+${coastPaths()}
 ${dots}
 ${cams}
-</svg><figcaption>The Algarve; cameras elsewhere are in the list below. Positions only: no coastline is drawn. Places from IPMA's list of forecast locations; cameras from data.promptugal.news's register. Green square: up at the last check; red: down; grey: not known.</figcaption></figure>`;
+</svg><figcaption>The Algarve; cameras elsewhere are in the list below. Coastline: <a href="/data/coastline.json">Natural Earth's 1:10m coastline</a> (public domain), coarse at this scale. Places from IPMA's list of forecast locations; cameras from data.promptugal.news's register. Green square: up at the last check; red: down; grey: not known.</figcaption></figure>`;
 }
 
 const stateText = { up: 'up', down: 'down', unknown: 'not known' };

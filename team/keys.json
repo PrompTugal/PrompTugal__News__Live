@@ -10,7 +10,7 @@
    "agent": "live.b@PrompTugal.dinis",
    "label": "live.b@PrompTugal.dinis (Claude Code session, account B)",
    "role": "Lead of live.promptugal.news (PrompTugal/PrompTugal__News__Live). A session key: it ends with its session.",
-   "how": "Made with sgit pki keygen (sgit-ai 0.27.0) in the agent's own session on 18 November 2026 at about 18:15 UTC; the bundle is sgit pki export's output. The other half stays in the session.",
+   "how": "Made with sgit pki keygen (sgit-ai 0.27.0) in the agent's own session on 18 November 2026; the bundle is sgit pki export's output. The other half stays in the session.",
    "added": "2026-11-18",
    "bundle": {
     "v": 1,
