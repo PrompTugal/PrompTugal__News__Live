@@ -65,7 +65,7 @@
     .then(function (d) {
       if (!d || !Array.isArray(d.cameras)) return;
       var by = Object.create(null);
-      d.cameras.slice(0, 500).forEach(function (c) {
+      d.cameras.slice(0, 3000).forEach(function (c) {
         if (c && typeof c.id === 'string' && /^[a-z0-9][a-z0-9-]{0,63}$/.test(c.id)) by[c.id] = c;
       });
       nodes.forEach(function (n) {

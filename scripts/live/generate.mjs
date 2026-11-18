@@ -12,7 +12,7 @@ const REGISTER = `${DATA}/api/v1/cameras/index.json`;
 const REPO = 'https://github.com/PrompTugal/PrompTugal__News__Live';
 const CC = { name: 'CC BY 4.0', url: 'https://creativecommons.org/licenses/by/4.0/' };
 const IPMA_LICENSE = { name: "the source's terms", url: 'https://api.ipma.pt/', holder: 'IPMA, Instituto Português do Mar e da Atmosfera', note: 'Free use for personal or public use without profit-making purpose, IPMA named as the source.' };
-const MAX_CAMERAS = 500;
+const MAX_CAMERAS = 3000; // the register held 911 on 18 Nov 2026 (889 TfL JamCams); 5 MB read cap
 const MAX_NEW_PLACES = 20; // places the register adds beyond ours
 const FETCH_BUDGET_MS = 4 * 60 * 1000; // after this, optional reads (history, weather) are skipped
 

@@ -17,6 +17,9 @@ const cameras = [
 ];
 cameras.push({ ...base, id: 'own-site', name: 'own site', page_url: 'https://www.cm-faro.pt/o', embed: { allowed: true, url: 'https://live.promptugal.news/x', host: 'live.promptugal.news', how: 'iframe' } });
 cameras.push({ ...base, id: 'relative-link', name: 'relative', page_url: '/api/v1/cameras.json', operator: { ...base.operator, url: 'https://www.cm-faro.pt:8443/' } });
+// 900 London records with unread terms, ahead of ours (as TfL JamCams arrived on 18 Nov): skipped, ours kept.
+const tfl = Array.from({ length: 900 }, (_, i) => ({ id: `london-tfl-${i}`, name: `JamCam ${i}`, place: 'london', operator: { name: 'Transport for London (TfL)', kind: 'ip', url: 'https://tfl.gov.uk/' }, page_url: 'https://tfl.gov.uk/traffic/status/', terms: { url: 'https://tfl.gov.uk/terms', checked_at: null, embedding: 'unclear' }, embed: { allowed: false }, status: { state: 'up' } }));
+cameras.unshift(...tfl);
 const routes = {
   'https://data.promptugal.news/api/v1/cameras/index.json': { cameras },
   'https://data.promptugal.news/api/v1/by-place/now/faro.json': { coords: { lat: 37.0194, lon: -7.9304 } },
@@ -37,7 +40,7 @@ let failed = 0;
 const check = (ok, what) => { if (!ok) { failed++; console.error(`FAIL ${what}`); } else console.log(`ok   ${what}`); };
 
 check(state.cameras === 6, `6 cameras kept (got ${state.cameras})`);
-check(state.skipped.length === 3, `3 skipped: traversal id, terms not checked, no safe operator page (got ${state.skipped.length})`);
+check(state.skipped.length === 903, `903 skipped: 900 with terms not checked, traversal id, terms not checked, no safe operator page (got ${state.skipped.length})`);
 const g = read('cameras/good-embed/index.html');
 check(g.includes('data-embed-src="https://player.cm-faro.pt/e/1" data-embed-host="player.cm-faro.pt"') && !g.includes('<iframe') && g.includes('frame-src https://player.cm-faro.pt;'), 'reviewed host: click-to-load, and in frame-src');
 check(g.includes('Praia &lt;b&gt;test&lt;/b&gt;') && !g.includes('<b>test</b>'), 'name escaped');
