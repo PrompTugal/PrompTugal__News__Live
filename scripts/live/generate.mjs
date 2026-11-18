@@ -95,6 +95,31 @@ ${body}
 `;
 }
 
+function embedPage(c, d, placeName) {
+  const csp = `default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'; frame-src https://${d.host}; base-uri 'none'; form-action 'none'; object-src 'none'`;
+  return `<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="${csp}">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>${esc(c.name)}: live view, PrompTugal.news Live</title>
+<meta name="description" content="${esc(c.name)} in ${esc(placeName)}, ${esc(c.operator.name)}'s own live view, for embedding on PrompTugal.news sites.">
+<link rel="canonical" href="${SITE}/cameras/${c.id}/">
+<link rel="stylesheet" href="/assets/brand/brand-tokens.css">
+<link rel="stylesheet" href="/assets/site.css">
+<link rel="stylesheet" href="/assets/live.css">
+<script src="/assets/live.js" defer></script>
+</head>
+<body class="embed-body">
+<div class="embed" data-embed-src="${esc(d.url)}" data-embed-host="${esc(d.host)}" data-embed-title="${esc(c.name)}, ${esc(c.operator.name)}'s own player"><button type="button" class="embed-load">Watch ${esc(c.name)} live</button><p class="embed-note">${esc(c.operator.name)}'s own player, from ${esc(d.host)}. Never recorded.</p></div>
+<p class="credit">Live view: ${a(c.page_url || c.operator.url, c.operator.name)} · ${a(c.license.url, c.license.name)} · <a href="${SITE}/cameras/${c.id}/" target="_blank" rel="noopener">PrompTugal.news Live</a></p>
+</body>
+</html>
+`;
+}
+
 const STATE = { read_at: '', register: 'not read', register_status: null, skipped: [] };
 
 // ---------- weather by place ----------
@@ -160,17 +185,18 @@ function mapSvg(places, cameras) {
     const dy = LABEL_DY[p.id] || 4;
     return `<a href="/places/${p.id}/"><circle class="m-place" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="5"></circle><text class="m-label${end ? ' m-end' : ''}" x="${(end ? x - 8 : x + 8).toFixed(1)}" y="${(y + dy).toFixed(1)}">${esc(p.name)}</text></a>`;
   }).join('\n');
-  const cams = cameras.filter((c) => c.lat !== null && c.lon !== null).map((c) => {
+  const cams = cameras.filter((c) => c.decision.embed && c.lat !== null && c.lon !== null).map((c) => {
     const [x, y] = xy(c.lat, c.lon);
     if (x < 0 || x > BOX.w || y < 0 || y > BOX.h) return '';
-    return `<a href="/cameras/${c.id}/"><rect class="m-cam m-${c.status.state}" x="${(x - 5).toFixed(1)}" y="${(y - 5).toFixed(1)}" width="10" height="10"><title>${esc(c.name)}</title></rect></a>`;
+    const d = c.decision;
+    return `<a class="m-cam-link" href="/cameras/${c.id}/" data-embed-src="${esc(d.url)}" data-embed-host="${esc(d.host)}" data-embed-title="${esc(c.name)}, ${esc(c.operator.name)}'s own player" data-cam-name="${esc(c.name)}" data-cam-operator="${esc(c.operator.name)}" data-cam-page="${esc(c.page_url || c.operator.url)}"><rect class="m-cam m-${c.status.state}" x="${(x - 7).toFixed(1)}" y="${(y - 7).toFixed(1)}" width="14" height="14"><title>${esc(c.name)}: press to watch live</title></rect></a>`;
   }).join('\n');
-  return `<figure class="map"><svg viewBox="0 0 ${BOX.w} ${BOX.h}" role="img" aria-labelledby="map-t"><title id="map-t">The Algarve: the places we cover (circles) and the registered cameras (squares)</title>
+  return `<figure class="map"><svg viewBox="0 0 ${BOX.w} ${BOX.h}" role="img" aria-labelledby="map-t"><title id="map-t">The Algarve: the places we cover (circles) and the cameras you can watch here (squares)</title>
 <rect class="m-sea" x="0" y="0" width="${BOX.w}" height="${BOX.h}"></rect>
 ${coastPaths()}
 ${dots}
 ${cams}
-</svg><figcaption>The Algarve; cameras elsewhere are in the list below. Coastline: <a href="/data/coastline.json">Natural Earth's 1:10m coastline</a> (public domain), coarse at this scale. Places from data.promptugal.news (Wikidata) where it gives a point, else IPMA's list of forecast locations; cameras from data.promptugal.news's register. Green square: up at the last check; red: down; grey: not known.</figcaption></figure>`;
+</svg><figcaption>Press a square to watch that camera live here, in its operator's own player. The Algarve; cameras elsewhere are in the list below. Coastline: <a href="/data/coastline.json">Natural Earth's 1:10m coastline</a> (public domain), coarse at this scale. Places from data.promptugal.news (Wikidata) where it gives a point, else IPMA's list of forecast locations; cameras from data.promptugal.news's register. Green square: up at the last check; red: down; grey: not known.</figcaption></figure>`;
 }
 
 const stateText = { up: 'up', down: 'down', unknown: 'not known' };
@@ -265,7 +291,7 @@ export async function generate(outDir = '_site', opts = {}) {
   const pub = (c) => ({
     id: c.id, name: c.name, place: c.place, lat: c.lat, lon: c.lon, coords_source: c.coords_source,
     operator: c.operator, page_url: c.page_url,
-    view: c.decision.embed ? { how: 'embed', url: c.decision.url, host: c.decision.host } : { how: 'link', url: c.page_url || c.operator.url, why: c.decision.why },
+    view: c.decision.embed ? { how: 'embed', url: c.decision.url, host: c.decision.host, embed_page: `${SITE}/embed/${c.id}/` } : { how: 'link', url: c.page_url || c.operator.url, why: c.decision.why },
     terms: c.terms, license: c.license, status: c.status,
     status_history: c.status_history.startsWith('/') ? `${DATA}${c.status_history}` : c.status_history, registered_at: c.registered_at,
     page: `${SITE}/cameras/${c.id}/`, api: `${SITE}/api/v1/cameras/${c.id}.json`,
@@ -293,13 +319,17 @@ export async function generate(outDir = '_site', opts = {}) {
   json('api/v1/openapi.json', openapi());
 
   // ---------- pages ----------
-  const intro = `<p>Live views of the places we cover, from cameras that public bodies and operators share themselves. Each view is the operator's own player or a link to it: we never record, store or re-host a picture, and we never analyse what a camera shows. Beside each camera: who runs it, its terms, whether it was up at the last check, and the weather in that place.</p>`;
-  write('index.html', page({ path: '/', current: '/', title: 'PrompTugal.news Live: public cameras in the Algarve', description: 'A map and list of the public cameras that public bodies and operators share in the places PrompTugal.news covers: the operator\'s own player or a link, never recorded.', scripts: ['/assets/live.js'],
+  const intro = `<p>Live views of the places we cover, from cameras that public bodies and operators share themselves. Each view is the operator's own player, embedded here with the credit and a link to them: we never record, store or re-host a picture, and we never analyse what a camera shows. Beside each camera: who runs it, its terms, whether it was up at the last check, and the weather in that place.</p>`;
+  const watchable = cameras.filter((c) => c.decision.embed), linkOnly = cameras.filter((c) => !c.decision.embed);
+  const noWatchable = () => `<div class="empty"><p><strong>No camera can be watched here yet.</strong> We show a camera only where its operator offers an embed whose terms let us use it, from the operator's own site. data.promptugal.news registers the cameras and checks their terms; ${cameras.length} are registered, and none has such an embed yet.</p></div>`;
+  write('index.html', page({ path: '/', current: '/', frameHosts: [...new Set(watchable.map((c) => c.decision.host))].sort(), title: 'PrompTugal.news Live: public cameras in the Algarve', description: 'A map of the public cameras that public bodies and operators share in the places PrompTugal.news covers: press one to watch it live in the operator\'s own player, never recorded.', scripts: ['/assets/live.js'],
     body: `<h1>Public cameras in the places we cover</h1>
 ${intro}
 ${mapSvg(places, cameras)}
-<h2>The cameras</h2>
-${cameras.length ? camTable(cameras, placeName) : noCameras()}
+<section id="viewer" class="viewer" aria-live="polite" hidden></section>
+<h2>Cameras you can watch here</h2>
+${watchable.length ? camTable(watchable, placeName) : noWatchable()}
+${linkOnly.length ? `<details class="pending"><summary>${linkOnly.length} more cameras are registered but cannot be shown here yet</summary><p>Their operators have not yet offered an embed we may use, so we do not show them on the map. We are asking them. Until then, each links to the operator's own page.</p>${camTable(linkOnly, placeName)}</details>` : ''}
 <p class="muted">Status is refreshed in your browser from <a href="${REGISTER}">data.promptugal.news</a> when it can be read; otherwise it is as at the last build. <a href="/api/v1/cameras.json">The data</a>.</p>` }));
 
   write('places/index.html', page({ path: '/places/', current: '/places/', title: 'Places: PrompTugal.news Live', description: 'The places PrompTugal.news Live covers, each with its cameras and the weather there.',
@@ -341,6 +371,12 @@ ${view}
 <h2>The weather in ${esc(placeName(c.place))}</h2>${weatherHtml(weather[c.place], c.place, placeName(c.place))}
 <p class="takedown">Run this camera? <a href="${REPO}/issues/new?title=${encodeURIComponent(`Camera ${c.id}`)}">Claim or correct this entry, or ask us to take it down</a>: we take it down while we talk.</p>
 <p class="muted"><a href="/api/v1/cameras/${c.id}.json">This camera's data</a>.</p>` }));
+  }
+  // /embed/<id>/: one camera's player and its credit, for the other PrompTugal.news sites to frame (Dinis,
+  // 18 Nov 2026: "embed this in the multiple websites"). The operator's player loads when pressed.
+  for (const c of watchable) {
+    const d = c.decision;
+    write(`embed/${c.id}/index.html`, embedPage(c, d, placeName(c.place)));
   }
   // the written pages: scripts/live/content/<name>.html, first two lines the title and description
   for (const name of ['how', 'principles', 'security', 'api']) {

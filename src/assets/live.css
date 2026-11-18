@@ -25,3 +25,8 @@
 .embed-load:hover, .embed-load:focus-visible { background: var(--green); color: var(--paper); }
 .embed-note { font-size: .85rem; color: var(--muted); max-width: 32rem; margin: 0; }
 .m-end { text-anchor: end; }
+.viewer { margin: 1rem 0; } .viewer h2 { border-top: 0; padding-top: 0; margin-top: .5rem; }
+.m-cam-link { cursor: pointer; } .m-cam-link:hover rect, .m-cam-link:focus rect { stroke-width: 3; }
+.pending summary { cursor: pointer; font-weight: 600; margin: 1rem 0 .4rem; }
+.embed-body { margin: 0; padding: 8px; } .embed-body .embed { border-radius: 6px; }
+.credit { font-size: .8rem; color: var(--muted); margin: 6px 0 0; }

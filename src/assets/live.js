@@ -26,6 +26,38 @@
       box.appendChild(f);
     });
   });
+  // The map: pressing a camera square loads its player in the viewer below the map (the press is the reader's
+  // choice to load it). Text by textContent only; the URL and host checked as for the buttons.
+  var viewer = document.getElementById('viewer');
+  Array.prototype.forEach.call(document.querySelectorAll('a.m-cam-link[data-embed-src]'), function (link) {
+    link.addEventListener('click', function (ev) {
+      if (!viewer) return;
+      var src = link.getAttribute('data-embed-src') || '', host = link.getAttribute('data-embed-host') || '';
+      var u;
+      try { u = new URL(src); } catch (e) { return; }
+      if (u.protocol !== 'https:' || u.hostname !== host || u.username || u.password) return;
+      ev.preventDefault();
+      while (viewer.firstChild) viewer.removeChild(viewer.firstChild);
+      var h = document.createElement('h2'); h.textContent = link.getAttribute('data-cam-name') || 'Live view';
+      var box = document.createElement('div'); box.className = 'embed';
+      var f = document.createElement('iframe');
+      f.setAttribute('src', u.href);
+      f.setAttribute('title', link.getAttribute('data-embed-title') || 'Live view');
+      f.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-presentation');
+      f.setAttribute('referrerpolicy', 'no-referrer');
+      f.setAttribute('allow', 'fullscreen');
+      f.setAttribute('allowfullscreen', '');
+      box.appendChild(f);
+      var p = document.createElement('p'); p.className = 'src';
+      p.appendChild(document.createTextNode('Live view: ' + (link.getAttribute('data-cam-operator') || 'the operator') + "'s own player, never recorded. "));
+      var page = link.getAttribute('data-cam-page') || '', more = document.createElement('a');
+      try { var pu = new URL(page); if (pu.protocol === 'https:') { more.setAttribute('href', pu.href); more.setAttribute('rel', 'noopener noreferrer nofollow'); more.textContent = 'The operator\'s page'; p.appendChild(more); p.appendChild(document.createTextNode(' · ')); } } catch (e) {}
+      var info = document.createElement('a'); info.setAttribute('href', link.getAttribute('href')); info.textContent = 'About this camera'; p.appendChild(info);
+      viewer.appendChild(h); viewer.appendChild(box); viewer.appendChild(p);
+      viewer.hidden = false;
+      viewer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    });
+  });
   var nodes = document.querySelectorAll('[data-cam]');
   if (!nodes.length || !window.fetch) return;
   fetch(REGISTER, { redirect: 'error', credentials: 'omit', referrerPolicy: 'no-referrer' })

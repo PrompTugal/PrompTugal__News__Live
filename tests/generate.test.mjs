@@ -7,7 +7,7 @@ import { generate } from '../scripts/live/generate.mjs';
 
 const base = { place: 'faro', operator: { name: 'Câmara Municipal de Faro', kind: 'camara', url: 'https://www.cm-faro.pt/' }, terms: { url: 'https://www.cm-faro.pt/terms', checked_at: '2026-11-18T10:00:00Z', embedding: 'allowed' }, status: { state: 'up', checked_at: '2026-11-18T18:00:00Z', http_status: 200 } };
 const cameras = [
-  { ...base, id: 'good-embed', name: 'Praia <b>test</b>', page_url: 'https://www.cm-faro.pt/cam', embed: { allowed: true, url: 'https://player.cm-faro.pt/e/1', host: 'player.cm-faro.pt', how: 'iframe' }, status_history: '/api/v1/cameras/good-embed/status.json' },
+  { ...base, id: 'good-embed', lat: 37.01, lon: -7.93, name: 'Praia <b>test</b>', page_url: 'https://www.cm-faro.pt/cam', embed: { allowed: true, url: 'https://player.cm-faro.pt/e/1', host: 'player.cm-faro.pt', how: 'iframe' }, status_history: '/api/v1/cameras/good-embed/status.json' },
   { ...base, id: 'not-listed-host', name: 'x" onmouseover="alert(1)', page_url: 'javascript:alert(1)', operator: { ...base.operator, url: 'https://www.cm-faro.pt/' }, embed: { allowed: true, url: 'https://evil.example/e', host: 'evil.example', how: 'iframe' } },
   { ...base, id: 'host-mismatch', name: 'Mismatch', page_url: 'https://www.cm-faro.pt/m', embed: { allowed: true, url: 'https://evil.example/e', host: 'player.cm-faro.pt', how: 'iframe' } },
   { ...base, id: '../etc', name: 'traversal', page_url: 'https://www.cm-faro.pt/t' },
@@ -55,6 +55,13 @@ check(!read('cameras/own-site/index.html').includes('data-embed-src'), 'no embed
 check(!existsSync(join(out, 'cameras/relative-link')), 'a site-relative or port URL from the data is not a link');
 check(JSON.parse(read('api/v1/cameras/good-embed.json')).camera.status_history.startsWith('https://data.promptugal.news/'), 'API: status_history absolute');
 const home = read('index.html');
+check((home.match(/class="m-cam-link"/g) || []).length === 1 && home.includes('data-embed-src="https://player.cm-faro.pt/e/1"'), 'the map shows only the embeddable camera');
+check(home.includes('id="viewer"') && /<details class="pending"><summary>5 more cameras/.test(home), 'link-only cameras are listed apart, not on the map');
+check(home.includes('frame-src https://player.cm-faro.pt;'), 'the home page may frame only the reviewed host');
+check(existsSync(join(out, 'embed/good-embed/index.html')) && !existsSync(join(out, 'embed/host-mismatch')), 'an embed page only for embeddable cameras');
+const emb = read('embed/good-embed/index.html');
+check(emb.includes("frame-src https://player.cm-faro.pt;") && emb.includes('Live view:') && emb.includes('href="https://www.cm-faro.pt/cam"'), 'embed page: one host, the credit and the link to the operator');
+check(JSON.parse(read('api/v1/cameras/good-embed.json')).camera.view.embed_page === 'https://live.promptugal.news/embed/good-embed/', 'API: embed_page for other sites');
 check(/<path class="m-coast" d="M[0-9. LM-]+"><\/path>/.test(home), 'coastline drawn as numbers-only paths');
 const pv = read('preview.svg');
 check(!pv.includes('<b>') && !pv.includes('onmouseover') && !pv.includes('Praia') && /cameras listed/.test(pv), 'preview.svg holds counts only, no register text');
