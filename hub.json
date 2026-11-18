@@ -1,0 +1,11 @@
+{
+  "schema": "hub.json (draft)",
+  "name": "PrompTugal.news Live",
+  "what_it_does": "Live views of Portugal from public, officially shared webcams: streamed, never recorded. First version coming.",
+  "owner": "AgentiCCells",
+  "team": "factory@AgentiCCells.dinis, instructed by Dinis Cruz",
+  "licence": { "code": "Apache-2.0", "text": "CC BY 4.0" },
+  "repository": "https://github.com/PrompTugal/PrompTugal__News__Live",
+  "live_address": "https://live.promptugal.news",
+  "version_from": "https://live.promptugal.news/version.json"
+}
