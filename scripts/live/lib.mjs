@@ -107,7 +107,8 @@ export function embedDecision(cam, allowHosts) {
   const e = cam.embed;
   if (!e.allowed) return { embed: false, why: 'the register does not say embedding is allowed' };
   if (cam.terms.embedding !== 'allowed' || !cam.terms.url) return { embed: false, why: 'the operator terms, as checked, do not say embedding is allowed' };
-  if (!cam.license || cam.license.commercial_use !== 'allowed') return { embed: false, why: 'its licence, as recorded, does not say commercial use is allowed' };
+  // No commercial-use gate here: only promptugal.news bills; live.promptugal.news carries no billing and may show any
+  // data with its licence and provenance (Dinis, 18 Nov 2026, about 23:45 UTC). commercial_use stays recorded and shown.
   const kind = e.how;
   const url = kind === 'video' ? (e.video_url || e.url) : kind === 'image' ? (e.image_url || e.url) : kind === 'iframe' ? e.url : '';
   if (!url || url.startsWith('/')) return { embed: false, why: 'no https embed URL' };

@@ -67,14 +67,15 @@ check(!existsSync(join(out, 'cameras/relative-link')), 'a site-relative or port 
 check(JSON.parse(read('api/v1/cameras/good-embed.json')).camera.status_history.startsWith('https://data.promptugal.news/'), 'API: status_history absolute');
 const home = read('index.html');
 const views = JSON.parse(read('api/v1/views.json')).views;
-check((home.match(/class="m-cam-link"/g) || []).length === 3 && home.includes('data-view="good-embed"') && views['good-embed'].url === 'https://player.cm-faro.pt/e/1', 'the maps show only the embeddable cameras (Faro and two London), views.json holds each view');
-check(home.includes('id="viewer"') && /<details class="pending"><summary>7 more cameras/.test(home), 'link-only cameras are listed apart, not on the map');
+check((home.match(/class="m-cam-link"/g) || []).length === 4 && home.includes('data-view="good-embed"') && views['good-embed'].url === 'https://player.cm-faro.pt/e/1', 'the maps show only the embeddable cameras (Faro and three London), views.json holds each view');
+check(home.includes('id="viewer"') && /<details class="pending"><summary>6 more cameras/.test(home), 'link-only cameras are listed apart, not on the map');
 check(home.includes('frame-src https://player.cm-faro.pt;') && home.includes('media-src https://s3-eu-west-1.amazonaws.com/jamcams.tfl.gov.uk/;'), 'the home page: frames only from the reviewed host, media only from the reviewed path');
 const jam = read('cameras/london-jam-1/index.html');
 check(jam.includes('data-embed-kind="video"') && jam.includes('data-embed-prefix="/jamcams.tfl.gov.uk/"') && jam.includes('Powered by TfL Open Data') && jam.includes("frame-src 'none'"), 'a JamCam: a video view under its reviewed path, with its credit');
 check(!!views['london-jam-2'], 'commercial use recorded on the terms counts');
 check(embedDecisionShared(), 'a shared storage host without a reviewed path is refused for every kind');
-check(!views['london-jam-other-bucket'] && !views['london-jam-no-commercial'], 'another bucket on the shared host, or no commercial use: not shown');
+check(!views['london-jam-other-bucket'], 'another bucket on the shared host: not shown');
+check(!!views['london-jam-no-commercial'], 'no commercial use: still shown here (no billing on this site), with its licence');
 check(existsSync(join(out, 'embed/good-embed/index.html')) && !existsSync(join(out, 'embed/host-mismatch')), 'an embed page only for embeddable cameras');
 const emb = read('embed/good-embed/index.html');
 check(emb.includes("frame-src https://player.cm-faro.pt;") && emb.includes('Live view:') && emb.includes('href="https://www.cm-faro.pt/cam"'), 'embed page: one host, the credit and the link to the operator');
