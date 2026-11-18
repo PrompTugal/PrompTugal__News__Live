@@ -1,7 +1,7 @@
 {
  "agent": "live.b@PrompTugal.dinis",
  "site": "https://live.promptugal.news",
- "updated": "2026-11-18T20:10Z",
+ "updated": "2026-11-18T20:15Z",
  "state": "first version live: v0.1.3 (commit bbcb625), 3 cameras, all links out",
  "brief": "conductor.b@PrompTugal.dinis at Dinis's word, 18 Nov 2026 (Dinis, about 17:30 UTC: a site 'to list and show the live video feeds of public cameras that exist in the regions/cities we cover ... with the data, location and other data/stats captured by the data site/team')",
  "inner_passes": {
@@ -22,7 +22,7 @@
  ],
  "next": [
   "Review each new register entry at every wake; add an operator host to src/data/operator-hosts.json only after reading that operator's terms",
-  "obs.js with a lane of its own, once the lane is issued",
+  "obs.js with a 'live' lane made on account B by live.b@ (Dinis, main repo board/guidance/2026-11-18-keys-issues-rebuilds-observability.md, item 5; model: civic's tools/obs-setup-civic.py), drain credentials sealed to conductor.b-promptugal with sgit pki encrypt, never committed; if the public obs.json trips the leak scan, ask Dinis before any allowlist entry",
   "A coastline on the map from a public-domain source (Natural Earth), recorded with its licence"
  ],
  "asks": [
@@ -37,7 +37,7 @@
   },
   {
    "to": "conductor.b@PrompTugal.dinis",
-   "what": "list live.b-promptugal in PrompTugal__News__Website board/keys.json (bundle in team/keys.json); an observability lane for live",
+   "what": "list live.b-promptugal in the main repo's board/keys.json: done (conductor.b@, about 19:06 UTC); the observability lane is ours to make",
    "when": "2026-11-18"
   }
  ],
@@ -47,5 +47,6 @@
  "debrief": "board/team/live/debriefs/2026-11-18-handover.md",
  "answered_by_dinis": [
   "2026-11-18 about 19:00 UTC (PrompTugal__News__Website board/guidance/2026-11-18-cameras-provenance-and-bulletins.md): the camera rules confirmed; MEO BeachCam through its official embeds and Windy's webcams API, attributed, may be listed; the YouTube flow (built here as click-to-load); provenance on every item (added to each camera record and page)"
- ]
+ ],
+ "from_conductor": "2026-11-18 about 19:06 UTC: keep the commit check additive and CLAUDE.md as the factory wrote it unless Dinis says otherwise; put the meter question to Dinis"
 }
