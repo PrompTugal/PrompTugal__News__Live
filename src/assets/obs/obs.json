@@ -1,0 +1,21 @@
+{
+  "config_from": "https://promptugal.news/assets/obs/obs.json",
+  "what": "This site counts page views and reading time, with no IP address kept, no cookie and no user-agent string, as promptugal.news does. Do Not Track, Global Privacy Control and the Pause switch in the footer stop it. What is counted: https://promptugal.news/newsroom/observability/index.html",
+  "about": "live.promptugal.news's page views and reads, sent by assets/obs/obs.js into live's own observability vault, made by live.b@PrompTugal.dinis on 18 November 2026 at Dinis Cruz's word (tools/obs-setup-live.py). Public on purpose: each append token can only append to its lane, and the key can only encrypt. The drain is conductor.b@PrompTugal.dinis's (credentials sealed to its key). The geo lookup list is read from promptugal.news's obs.json (config_from).",
+  "enabled": true,
+  "lane": "live",
+  "endpoint": "https://dev.send.sgraph.ai",
+  "vault_id": "m6096fcp",
+  "lanes": {
+    "live": [
+      "b86c5a9ac24332fc28c779380ac1553a73be68f0420099fcdf928c0a780b5da9",
+      "659cbe5f7564b4dbc31e2e0f943610c24962cbb3e941e3b5e312c77b975d25ea",
+      "d70e5e0c4d77a9a831a522ae23f9dc5f3ca999d9ae385b3b13f14cc94e6e86c2",
+      "5caf695a002a01af0ac63f770ba144d50c8ef9e1bff8723843c7975cd08da252"
+    ]
+  },
+  "recipient": {
+    "fingerprint": "sha256:998cce4e2b219962",
+    "encrypt": "-----BEGIN PUBLIC KEY-----\nMIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEAlCjwTuhJOWnfpw2poJa1\nZ7GqZN5s/jNvjkKXmmmOWVIgR8FiY3K5SV6Syi9DiTQhaE3X4J0WpyzdHoR9d+m2\nlUy+5Hs4xaOg/6XP1lGNol/Ma3/DJS99ALqQFi5gYqDZRUN3PmDpC2Wtc5KXHT0O\nmogdjpQDLbQUFaNnoZX4iUFASYVEo67BC/WFAeg/G51nfVziIgh0/wSCHCWDceyb\n0Ysk+aeP0CQFnPRAH8N76V8J69HVTcMJ6ObrOO9IIH9xZkWgKWiDbPHcjBmkB4gg\nipi22WWf14TA2gedN9afqhgUn1tR3dXmGlnA2li3lf5RD+aT5WWuctwIpSqwFK69\nwn3XCaEsEU4dnfjhU8EmcwCBBMQ8hDs9M7PstE0z/vl5fOPuW+DtazvOzXNQqW6w\nOKMOE8fOIUXsdhf6RMDZjE/Iwchs9m/ipbSvxWy8xUzU5mAJ4/Sj49pyZigyzbDY\nw7+gSn2eJwD7oVicFktkj+4djN10DG8BCz25OrE00dkxYkSMfl9MGeKNNGHBU0sR\n0QK0q4E2vEk69xw/Vlqv//Vhgs9ObS++1czlwUnhuPoWcwQAG3p7D1J8tzbJgOl+\nJl9oZ2MHIbI4V7QEyzHGNmw+RJiEIm1a1x49LV4OzDg94wpjjbe31n0NQdtYEKUZ\nRnxwf0WO2i0FQcz19s8Z+DkCAwEAAQ==\n-----END PUBLIC KEY-----\n"
+  }
+}

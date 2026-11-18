@@ -93,6 +93,14 @@ const ALLOW = [
   ['_site/keys.json', 'public key outside team/keys', 'served copy of team/keys.json'],
   // live.b@PrompTugal.dinis, 2026-11-18: a detached ECDSA signature (public by design) over the first release's manifest,
   // checked with sgit pki verify against live.b-promptugal in team/keys.json.
+  // live.b@PrompTugal.dinis, 2026-11-18: live's observability config, at Dinis's word in live.b@'s session ("yes, allow
+  // assets/obs/obs.json in the leak scan"): four append-only lane tokens and the drain's public encryption key, public by
+  // design as on promptugal.news and civic. A token can only append to its lane; the key can only encrypt. The vault key,
+  // enum key and drain private key are never here (they are in ~/.sg-send/obs-live/, sealed to conductor.b@).
+  ['src/assets/obs/obs.json', 'long high-entropy string', "live's observability config (append-only tokens, public by design)"],
+  ['src/assets/obs/obs.json', 'public key outside team/keys', "live's observability config (the drain's public key)"],
+  ['_site/assets/obs/obs.json', 'long high-entropy string', 'the built copy of src/assets/obs/obs.json'],
+  ['_site/assets/obs/obs.json', 'public key outside team/keys', 'the built copy of src/assets/obs/obs.json'],
   ['board/team/live/signatures/2026-11-18-first-version.txt.sig', 'long high-entropy string', 'detached signature, public'],
 ];
 const allowed = (path, kind) => ALLOW.some(([p, k]) => p === path && k === kind);

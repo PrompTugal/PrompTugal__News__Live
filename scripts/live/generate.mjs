@@ -30,7 +30,10 @@ const a = (url, text, ext = true) => { const u = safeUrl(url); if (!u) return es
 // ---------- the page shell ----------
 // The policy for one page: frames only from the reviewed iframe sources, video and images only from the reviewed
 // media sources (host and path), each a CSP source expression built by embedDecision().
-const cspFor = ({ frameSrc = [], mediaSrc = [], connect = `'self' ${DATA}` }) => {
+// Observability (assets/obs/obs.js, at Dinis's word, 18 Nov 2026): its endpoint, the shared config on promptugal.news and
+// the two place lookups the estate uses (named in promptugal.news's obs.json "geo"), and nothing else.
+const OBS_CONNECT = 'https://dev.send.sgraph.ai https://promptugal.news https://ipapi.co https://ipwho.is';
+const cspFor = ({ frameSrc = [], mediaSrc = [], connect = `'self' ${DATA} ${OBS_CONNECT}` }) => {
   const f = [...new Set(frameSrc)].sort(), m = [...new Set(mediaSrc)].sort();
   return `default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:${m.length ? ' ' + m.join(' ') : ''}; media-src ${m.length ? m.join(' ') : "'none'"}; connect-src ${connect}; frame-src ${f.length ? f.join(' ') : "'none'"}; base-uri 'none'; form-action 'none'; object-src 'none'`;
 };
@@ -60,7 +63,7 @@ function page({ path, title, description, body, frameSrc = [], mediaSrc = [], sc
 <link rel="stylesheet" href="/assets/brand/brand-tokens.css">
 <link rel="stylesheet" href="/assets/site.css">
 <link rel="stylesheet" href="/assets/live.css">
-${scripts.map((s) => `<script src="${s}" defer></script>`).join('\n')}
+${[...scripts, '/assets/obs/obs.js'].map((s) => `<script src="${s}" defer></script>`).join('\n')}
 </head>
 <body>
 <a class="skip" href="#main">Skip to the content</a>
