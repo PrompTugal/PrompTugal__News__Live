@@ -22,12 +22,12 @@ export function previewJson(n) {
   };
 }
 
-// The 320 by 180 preview for the sites bar's pop-up (sites bar 1.1.0), from designer@'s template, vendored from
+// The 320 by 180 preview for the sites bar's pop-up (the sites bar), from designer@'s template, vendored from
 // PrompTugal__News__Website design/sites-bar/preview-template.svg.txt: counts and fixed words only, system fonts, no
 // script, no external reference. Every value is escaped; an unknown placeholder becomes empty.
 const x = (v) => String(v).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 export function previewSvg(n) {
-  const tpl = readFileSync(new URL('../vendor/sites-bar/1.1.0/preview-template.svg.txt', import.meta.url), 'utf8');
+  const tpl = readFileSync(new URL('../vendor/sites-bar/preview-template.svg.txt', import.meta.url), 'utf8');
   const when = n.read_at ? `${n.read_at.slice(0, 10)} ${n.read_at.slice(11, 16)} UTC` : 'not read';
   const fill = { site: 'Live', line: 'public cameras to watch, never recorded', accent: '#0a7d4f', SITE: 'LIVE', n1: n.embeddable, label1: 'cameras to watch now', n2: n.up, label2: 'up at the last check', n3: n.places, label3: 'places with a camera', read_at: when, licence: 'CC BY 4.0' };
   return tpl.replace(/\{\{([A-Za-z0-9_]+)\}\}/g, (m, k) => (Object.prototype.hasOwnProperty.call(fill, k) ? x(fill[k]) : '')) + '\n';

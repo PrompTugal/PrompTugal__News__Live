@@ -7,25 +7,43 @@ import { generate } from './live/generate.mjs';
 import { createHash } from 'node:crypto';
 import { fetchJson } from './live/lib.mjs';
 
-let tzStale = '';
-// The shared time-zone-to-country table: while the registry names the version we pinned, the file must match the
-// registry's full integrity string; a mismatch stops the build. A newer version there is never taken here: the build ships no table, so no country is sent, and deploys the rest
-// (data.b@'s trap, 19 Nov 2026: a newer pin must not stop the site).
-{
-  const pin = JSON.parse(readFileSync('scripts/vendor/obs-tz/pin.json', 'utf8'));
-  const r = await fetchJson(pin.registry, { host: 'promptugal.news', maxBytes: 2_000_000 });
-  const tz = r.ok && r.data && typeof r.data.obs_tz === 'object' ? r.data.obs_tz : null;
-  if (!tz) console.log(`obs_tz: registry not read (${r.why || 'no obs_tz'}); the pinned hash is still checked by the validator`);
-  else if (tz.version !== pin.version) { tzStale = `obs_tz ${pin.version} off: the registry names ${String(tz.version).replace(/[^0-9A-Za-z.+-]/g, '').slice(0, 20)}`; console.log(`${tzStale} (left out, never shipped unchecked; no country is sent until the next wake upgrades it)`); }
-  else if ('sha256-' + createHash('sha256').update(readFileSync(pin.file)).digest('base64') !== tz.integrity) { console.error(`obs_tz: ${pin.file} does not match the registry's integrity for ${pin.version}: not deploying`); process.exit(1); }
-  else console.log(`obs_tz: ${pin.version} matches the registry's integrity`);
+// The pieces pinned from the registry (promptugal.news/api/v1/sites.json): the shared time-zone table (obs_tz) and the
+// sites bar (bar). Each vendored file is checked against the registry's full pin for the version we pin
+// (<piece>.versions[v], or <piece>.integrity while the registry names our version). A mismatch stops the build. A pin the
+// registry no longer lists while it names a newer version leaves that piece out, never shipped unchecked, and the rest
+// deploys (data.b@'s trap and security@'s ruling, 19 Nov 2026). An unreadable registry leaves the validator's hash check.
+// No full pin is kept in this repository. The registry is the trust root (plain HTTPS to promptugal.news).
+const SRI = (f) => 'sha256-' + createHash('sha256').update(readFileSync(f)).digest('base64');
+const tidy = (v) => String(v).replace(/[^0-9A-Za-z.+-]/g, '').slice(0, 20);
+const sitesReg = await fetchJson('https://promptugal.news/api/v1/sites.json', { host: 'promptugal.news', maxBytes: 2_000_000 });
+function checkPiece(name, pin, files) {
+  const entry = sitesReg.ok && sitesReg.data && typeof sitesReg.data[name] === 'object' ? sitesReg.data[name] : null;
+  if (!entry) { console.log(`${name}: registry not read (${sitesReg.why || 'no ' + name}); the pinned hash is still checked by the validator`); return ''; }
+  const v = pin.version;
+  const listed = entry.versions && typeof entry.versions === 'object' && Object.prototype.hasOwnProperty.call(entry.versions, v) ? entry.versions[v] : null;
+  const want = listed || (entry.version === v ? (typeof entry.integrity === 'string' ? { integrity: entry.integrity } : entry.integrity) : null);
+  if (!want || typeof want !== 'object') {
+    if (entry.version !== v) { const off = `${name} ${v} off: the registry names ${tidy(entry.version)}`; console.log(`${off} (left out, never shipped unchecked; the next wake upgrades it)`); return off; }
+    console.error(`${name}: the registry names ${v} but gives no pin for it: not deploying`); process.exit(1);
+  }
+  for (const [file, key] of Object.entries(files)) {
+    if (typeof want[key] !== 'string' || SRI(file) !== want[key]) { console.error(`${name}: ${file} does not match the registry's pin for ${v}: not deploying`); process.exit(1); }
+  }
+  console.log(`${name}: ${v} matches the registry's pins${entry.version !== v ? ` (the registry names ${tidy(entry.version)}: upgrade at the next wake)` : ''}`);
+  return '';
 }
+const tzPin = JSON.parse(readFileSync('scripts/vendor/obs-tz/pin.json', 'utf8'));
+const tzStale = checkPiece('obs_tz', tzPin, { [tzPin.file]: 'integrity' });
+const barPin = JSON.parse(readFileSync('scripts/vendor/sites-bar/pin.json', 'utf8'));
+const barOff = checkPiece('bar', barPin, barPin.registry_keys || {});
 const version = process.env.SITE_VERSION || 'dev';
 rmSync('_site', { recursive: true, force: true });
 cpSync('src', '_site', { recursive: true });
 cpSync('team/keys.json', '_site/keys.json');
 if (tzStale) rmSync('_site/assets/obs/tz-country.json', { force: true });
-const state = await generate('_site');
+if (barOff) rmSync('_site/assets/sites-bar', { recursive: true, force: true });
+const state = await generate('_site', { barOff: !!barOff });
+state.off = [tzStale, barOff].filter(Boolean);
 // In CI, a register that could not be read (other than not yet published, 404) fails the build, so the
 // live site keeps its last good pages instead of showing no cameras (the security pre-review, item 5).
 if (process.env.CI && state.register_status !== 200 && state.register_status !== 404) {
@@ -46,7 +64,7 @@ for (const f of walk('_site')) {
   const s = readFileSync(f, 'utf8');
   if (s.includes('__VERSION__')) writeFileSync(f, s.replaceAll('__VERSION__', version));
 }
-writeFileSync('_site/version.json', JSON.stringify({ version, commit: process.env.GITHUB_SHA || 'local', built: new Date().toISOString(), register: state.register, cameras: state.cameras }, null, 2) + '\n');
+writeFileSync('_site/version.json', JSON.stringify({ version, commit: process.env.GITHUB_SHA || 'local', built: new Date().toISOString(), register: state.register, cameras: state.cameras, ...(state.off.length ? { off: state.off } : {}) }, null, 2) + '\n');
 writeFileSync('_site/.nojekyll', '');
 // Log ids and counts only: register text never reaches the log (prompt injection, the threat model).
 console.log(`built _site/ (${version}): register ${state.register_status ?? 'unavailable'}, ${state.cameras} cameras, ${state.skipped.length} skipped, embeds from ${state.embedded.length ? [...new Set(state.embedded)].join(' ') : 'no host'}`);

@@ -94,10 +94,12 @@ for (const f of ['_site/data/coastline.json', '_site/data/places.json', '_site/d
   try { const d = JSON.parse(readFileSync(f, 'utf8')); if (!d.license || !d.license.url) fail(`${f}: no license link`); } catch { fail(`${f}: missing or not JSON`); }
 }
 if (existsSync('_site/data/coastline.json') && statSync('_site/data/coastline.json').size > 50000) fail('_site/data/coastline.json: over 50 KB');
-// The vendored sites bar (1.1.0): every file matches its pinned hash; never edited here.
+// The vendored sites bar (scripts/vendor/sites-bar/pin.json's version) and its preview template: every file matches its
+// pinned hash; never edited here.
 try {
   const pin = JSON.parse(readFileSync('scripts/vendor/sites-bar/pin.json', 'utf8'));
-  for (const [file, h] of Object.entries(pin.files)) {
+  for (const [file, h] of Object.entries({ ...pin.files, ...(pin.template || {}) })) {
+    if (!/^[0-9a-f]{40}$/.test(h)) { fail(`${file}: pinned hash is not 40 hex characters`); continue; }
     const got = existsSync(file) ? createHash('sha256').update(readFileSync(file)).digest('hex') : '';
     if (!got.startsWith(h)) fail(`${file}: differs from its pinned sites bar ${pin.version} hash`);
   }

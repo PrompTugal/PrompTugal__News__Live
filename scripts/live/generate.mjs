@@ -5,7 +5,11 @@ import { mkdirSync, writeFileSync, readFileSync } from 'node:fs';
 import { join, resolve, sep } from 'node:path';
 import { esc, clean, safeUrl, fetchJson, normaliseCamera, embedDecision, normaliseHistory, DATA_HOST } from './lib.mjs';
 import { previewNumbers, previewJson, previewSvg } from './preview.mjs';
-import { render as renderSitesBar } from '../vendor/sites-bar/1.1.0/sites-bar-render.mjs';
+// The sites bar: the version pinned in scripts/vendor/sites-bar/pin.json (checked against the registry by build.mjs).
+const BAR_PIN = JSON.parse(readFileSync(new URL('../vendor/sites-bar/pin.json', import.meta.url), 'utf8'));
+const BAR_V = /^\d+\.\d+\.\d+$/.test(BAR_PIN.version) ? BAR_PIN.version : '0.0.0';
+const { render: renderSitesBar } = await import(`../vendor/sites-bar/${BAR_V}/sites-bar-render.mjs`);
+let BAR_ON = true; // false when the build leaves the bar out (the registry names a newer version than we pin)
 
 const SITE = 'https://live.promptugal.news';
 const DATA = `https://${DATA_HOST}`;
@@ -34,7 +38,7 @@ const a = (url, text, ext = true) => { const u = safeUrl(url); if (!u) return es
 // Observability (assets/obs/obs.js, at Dinis's word, 18 Nov 2026): its endpoint, the shared config on promptugal.news and
 // nothing else (no place lookup since 19 Nov 2026, at Dinis's word).
 const OBS_CONNECT = 'https://dev.send.sgraph.ai https://promptugal.news';
-// The sites bar (1.1.0): each pop-up shows that site's /preview.svg as an image and reads its /version.json.
+// The sites bar: each pop-up shows that site's /preview.svg as an image and reads its /version.json.
 const BAR_SRC = 'https://promptugal.news https://*.promptugal.news';
 let BAR = ''; // the bar's HTML for this build, from renderSitesBar() or the last deployed bar
 const cspFor = ({ frameSrc = [], mediaSrc = [], connect = `'self' ${DATA} ${OBS_CONNECT} https://*.promptugal.news` }) => {
@@ -67,8 +71,7 @@ function page({ path, title, description, body, frameSrc = [], mediaSrc = [], sc
 <link rel="stylesheet" href="/assets/brand/brand-tokens.css">
 <link rel="stylesheet" href="/assets/site.css">
 <link rel="stylesheet" href="/assets/live.css">
-<link rel="stylesheet" href="/assets/sites-bar/1.1.0/sites-bar.css">
-${[...scripts, '/assets/sites-bar/1.1.0/sites-bar.js', '/assets/obs/obs.js'].map((s) => `<script src="${s}" defer></script>`).join('\n')}
+${BAR_ON ? `<link rel="stylesheet" href="/assets/sites-bar/${BAR_V}/sites-bar.css">\n` : ''}${[...scripts, ...(BAR_ON ? [`/assets/sites-bar/${BAR_V}/sites-bar.js`] : []), '/assets/obs/obs.js'].map((s) => `<script src="${s}" defer></script>`).join('\n')}
 </head>
 <body>
 <a class="skip" href="#main">Skip to the content</a>
@@ -261,14 +264,16 @@ export async function generate(outDir = '_site', opts = {}) {
   const placeIds = new Set(places.map((p) => p.id));
   const placeName = (id) => (places.find((p) => p.id === id) || {}).name || id;
 
-  // 0. the sites bar (sites bar 1.1.0): the registry from promptugal.news, rendered by the vendored renderer; if the
-  // registry cannot be read or is refused, the bar this site last deployed; if neither, no bar (never a hand-made one).
-  BAR = ''; STATE.bar = 'none';
-  const sr = await fetchJson('https://promptugal.news/api/v1/sites.json', { host: 'promptugal.news', maxBytes: 200_000 });
-  if (sr.ok) { BAR = renderSitesBar(sr.data, { here: 'live.promptugal.news' }); if (BAR) STATE.bar = 'from the registry'; }
-  if (!BAR && !opts.noFallback) {
+  // 0. the sites bar (the pinned version): the registry from promptugal.news, rendered by the vendored renderer; if the
+  // registry cannot be read or is refused, the bar this site last deployed, if it was rendered by the same version; if
+  // neither, no bar (never a hand-made one). opts.barOff (build.mjs: the registry names a newer version) leaves it out.
+  BAR = ''; STATE.bar = 'none'; BAR_ON = !opts.barOff;
+  const sr = BAR_ON ? await fetchJson('https://promptugal.news/api/v1/sites.json', { host: 'promptugal.news', maxBytes: 200_000 }) : { ok: false };
+  if (!BAR_ON) STATE.bar = 'off';
+  else if (sr.ok) { BAR = renderSitesBar(sr.data, { here: 'live.promptugal.news' }); if (BAR) STATE.bar = 'from the registry'; }
+  if (BAR_ON && !BAR && !opts.noFallback) {
     const last = await fetchJson('https://live.promptugal.news/assets/sites-bar/bar.json', { host: 'live.promptugal.news', maxBytes: 100_000 });
-    const h = last.ok && typeof last.data?.html === 'string' ? last.data.html : '';
+    const h = last.ok && last.data?.version === BAR_V && typeof last.data?.html === 'string' ? last.data.html : '';
     if (h.length < 60000 && /^<nav class="ptsb" aria-label="The PrompTugal\.news sites">[\s\S]*<\/nav>$/.test(h) && !/<script|\son[a-z]+=|javascript:/i.test(h)) { BAR = h; STATE.bar = 'the last deployed bar'; }
   }
 
@@ -434,7 +439,7 @@ ${view}
     const body = text.replace(/^<!-- (title|description): .+ -->\n/gm, '');
     write(`${name}/index.html`, page({ path: `/${name}/`, current: `/${name}/`, title, description, body }));
   }
-  json('assets/sites-bar/bar.json', { license: { name: 'Apache-2.0', url: 'https://www.apache.org/licenses/LICENSE-2.0' }, about: 'The sites bar this build rendered (sites bar 1.1.0), kept so the next build can use it if the registry is down.', from: STATE.bar, at: STATE.read_at, html: BAR });
+  if (BAR) json('assets/sites-bar/bar.json', { license: { name: 'Apache-2.0', url: 'https://www.apache.org/licenses/LICENSE-2.0' }, about: `The sites bar this build rendered (sites bar ${BAR_V}), kept so the next build can use it if the registry is down; used only by a build of the same version.`, version: BAR_V, from: STATE.bar, at: STATE.read_at, html: BAR });
   // the preview for the sites bar
   const pn = previewNumbers(cameras, STATE.read_at);
   write('preview.svg', previewSvg(pn));
