@@ -82,7 +82,7 @@ check(emb.includes("frame-src https://player.cm-faro.pt;") && emb.includes('Live
 check(JSON.parse(read('api/v1/cameras/good-embed.json')).camera.view.embed_page === 'https://live.promptugal.news/embed/good-embed/', 'API: embed_page for other sites');
 check(/<path class="m-coast" d="M[0-9. LM-]+"><\/path>/.test(home), 'coastline drawn as numbers-only paths');
 const pv = read('preview.svg');
-check(!pv.includes('<b>') && !pv.includes('onmouseover') && !pv.includes('Praia') && /cameras listed/.test(pv), 'preview.svg holds counts only, no register text');
+check(!pv.includes('<b>') && !pv.includes('onmouseover') && !pv.includes('Praia') && /cameras to watch now/.test(pv) && /viewBox="0 0 320 180"/.test(pv) && !/\{\{/.test(pv), 'preview.svg: the 320 by 180 template, counts only, no register text');
 check(JSON.parse(read('preview.json')).numbers.cameras === 10, 'preview.json counts the kept cameras');
 const pl = JSON.parse(read('api/v1/places/index.json')).places;
 const byId = Object.fromEntries(pl.map((p) => [p.id, p]));

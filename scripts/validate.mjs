@@ -83,12 +83,21 @@ for (const f of ['_site/data/coastline.json', '_site/data/places.json', '_site/d
   try { const d = JSON.parse(readFileSync(f, 'utf8')); if (!d.license || !d.license.url) fail(`${f}: no license link`); } catch { fail(`${f}: missing or not JSON`); }
 }
 if (existsSync('_site/data/coastline.json') && statSync('_site/data/coastline.json').size > 50000) fail('_site/data/coastline.json: over 50 KB');
+// The vendored sites bar (1.1.0): every file matches its pinned hash; never edited here.
+try {
+  const pin = JSON.parse(readFileSync('scripts/vendor/sites-bar/pin.json', 'utf8'));
+  for (const [file, h] of Object.entries(pin.files)) {
+    const got = existsSync(file) ? createHash('sha256').update(readFileSync(file)).digest('hex') : '';
+    if (!got.startsWith(h)) fail(`${file}: differs from its pinned sites bar ${pin.version} hash`);
+  }
+} catch (e) { fail(`scripts/vendor/sites-bar/pin.json: ${e.message}`); }
 // The sites-bar preview (live.b@, 2026-11-18): the SVG holds no script or external reference; the PNG is the recorded one.
 if (existsSync('_site/preview.svg')) {
   const v = readFileSync('_site/preview.svg', 'utf8');
   if (v.length > 20000) fail('_site/preview.svg: over 20 KB');
   if (/<script|<foreignObject|\son[a-z]+\s*=|href\s*=|url\(|@import|<!DOCTYPE|<!ENTITY|<image|<use|<a[\s>]|xlink:/i.test(v)) fail('_site/preview.svg: script, handler, link or external reference');
   if (!/^<svg xmlns="http:\/\/www\.w3\.org\/2000\/svg"[\s\S]*<\/svg>\s*$/.test(v)) fail('_site/preview.svg: not one svg element');
+  if (!/viewBox="0 0 320 180"/.test(v) || /\{\{/.test(v)) fail('_site/preview.svg: not the 320 by 180 template, or a placeholder left');
 } else fail('no _site/preview.svg');
 if (existsSync('_site/preview.png')) {
   const b = readFileSync('_site/preview.png'), rec = JSON.parse(readFileSync('src/data/preview-png.json', 'utf8')).png;

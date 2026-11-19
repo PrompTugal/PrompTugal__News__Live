@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 // /preview.svg and /preview.json: live.promptugal.news's own numbers for the sites bar (Dinis, 18 Nov 2026, about
 // 22:00 UTC, PrompTugal__News__Website board/guidance/2026-11-18-the-sites-bar.md). live.b@PrompTugal.dinis.
 // A fixed template: only integers this code counted and a checked timestamp go in. No register text ever does.
@@ -21,27 +22,13 @@ export function previewJson(n) {
   };
 }
 
+// The 320 by 180 preview for the sites bar's pop-up (sites bar 1.1.0), from designer@'s template, vendored from
+// PrompTugal__News__Website design/sites-bar/preview-template.svg.txt: counts and fixed words only, system fonts, no
+// script, no external reference. Every value is escaped; an unknown placeholder becomes empty.
+const x = (v) => String(v).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 export function previewSvg(n) {
+  const tpl = readFileSync(new URL('../vendor/sites-bar/1.1.0/preview-template.svg.txt', import.meta.url), 'utf8');
   const when = n.read_at ? `${n.read_at.slice(0, 10)} ${n.read_at.slice(11, 16)} UTC` : 'not read';
-  const tile = (x, value, label, cls) => `<g transform="translate(${x} 320)"><text class="v ${cls}" x="0" y="0">${value}</text><text class="l" x="0" y="44">${label}</text></g>`;
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630" role="img" aria-labelledby="t d">
-<title id="t">PrompTugal.news Live: ${n.cameras} public cameras, ${n.up} up at the last check</title>
-<desc id="d">Counts from data.promptugal.news's camera register, read ${when}, made by live.promptugal.news's build. Licence: CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). Version __VERSION__.</desc>
-<style>text{font-family:Inter,Arial,sans-serif;fill:#121317}.h{font-size:56px;font-weight:700}.s{font-size:30px;fill:#5c5e56}.v{font-size:96px;font-weight:700}.l{font-size:26px;fill:#5c5e56}.up{fill:#006600}.down{fill:#c52830}.unk{fill:#5c5e56}.f{font-size:22px;fill:#5c5e56}</style>
-<rect width="1200" height="630" fill="#f6f3ec"/>
-<rect width="1200" height="12" fill="#c52830"/>
-<text class="h" x="64" y="110">PrompTugal.news Live</text>
-<text class="s" x="64" y="160">Public cameras in the places we cover</text>
-<text class="s" x="64" y="200">The operator's own view or a link: never recorded</text>
-${tile(64, n.cameras, 'cameras listed', '')}
-${tile(330, n.up, 'up', 'up')}
-${tile(530, n.down, 'down', 'down')}
-${tile(730, n.unknown, 'not known', 'unk')}
-${tile(1000, n.places, 'places', '')}
-<text class="f" x="64" y="440">${n.embeddable} can be embedded today; the rest are links to the operator's page.</text>
-<text class="f" x="64" y="530">Source: data.promptugal.news camera register, read ${when}.</text>
-<text class="f" x="64" y="562">Counts by live.promptugal.news's build, version __VERSION__.</text>
-<text class="f" x="64" y="594">CC BY 4.0 · live.promptugal.news</text>
-</svg>
-`;
+  const fill = { site: 'Live', line: 'public cameras to watch, never recorded', accent: '#0a7d4f', SITE: 'LIVE', n1: n.embeddable, label1: 'cameras to watch now', n2: n.up, label2: 'up at the last check', n3: n.places, label3: 'places with a camera', read_at: when, licence: 'CC BY 4.0' };
+  return tpl.replace(/\{\{([A-Za-z0-9_]+)\}\}/g, (m, k) => (Object.prototype.hasOwnProperty.call(fill, k) ? x(fill[k]) : '')) + '\n';
 }

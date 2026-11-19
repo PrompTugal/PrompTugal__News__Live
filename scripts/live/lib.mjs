@@ -38,9 +38,12 @@ const obj = (v) => (v && typeof v === 'object' && !Array.isArray(v) ? v : {});
 
 // Fetch JSON from data.promptugal.news only: https, no redirects, a timeout and a size cap.
 export const DATA_HOST = 'data.promptugal.news';
-export async function fetchJson(url, { maxBytes = 5_000_000, timeoutMs = 15000 } = {}) {
+// host: data.promptugal.news unless the caller names one of the estate's own hosts (the sites bar's registry on
+// promptugal.news, and this site's own last bar); nothing else is ever read.
+const READ_HOSTS = new Set([DATA_HOST, 'promptugal.news', 'live.promptugal.news']);
+export async function fetchJson(url, { maxBytes = 5_000_000, timeoutMs = 15000, host = DATA_HOST } = {}) {
   const u = safeUrl(url);
-  if (!u || new URL(u).hostname !== DATA_HOST) return { ok: false, why: 'not a data.promptugal.news https URL' };
+  if (!u || !READ_HOSTS.has(host) || new URL(u).hostname !== host) return { ok: false, why: `not an https URL on ${host}` };
   let r;
   try { r = await fetch(u, { redirect: 'error', signal: AbortSignal.timeout(timeoutMs), headers: { accept: 'application/json' } }); }
   catch (e) { return { ok: false, why: `fetch failed (${clean(e.cause?.code || e.name, 40)})` }; }
