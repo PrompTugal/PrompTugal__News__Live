@@ -17,7 +17,7 @@ for (const t of ['OPENSSH ', 'RSA ', 'EC ', 'DSA ', 'ENCRYPTED ', ''])
     check(`${t || 'PKCS#8 '}private key header fails in ${path}`, kinds(path, header(t)).includes('private key block'));
 
 // 2. An SSH public key outside its published field is flagged by shape, even where the entropy rule is allowed.
-for (const alg of ['ssh-ed25519', 'ssh-rsa', 'ecdsa-sha2-nistp256'])
+for (const alg of ['ssh-ed25519', 'ssh-rsa', 'ecdsa-sha2-nistp256', 'ecdsa-sha2-nistp384', 'ecdsa-sha2-nistp521', 'sk-ssh-ed25519@openssh.com', 'sk-ecdsa-sha2-nistp256@openssh.com'])
   check(`${alg} public key flagged in a status file`, kinds('board/team/live/status.json', `"note": "${sshPub(alg)}"`).includes('SSH public key outside its published field'));
 check('SSH public key flagged in obs.json, whose entropy findings are allowed', kinds('src/assets/obs/obs.json', sshPub('ssh-ed25519')).includes('SSH public key outside its published field'));
 
