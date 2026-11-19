@@ -6,7 +6,7 @@
 // global config names another signer: data.b@'s pitfall), and a failing case passes only when the check fails for the
 // expected reason. Prints OK or the failing cases and exits 1.
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdtempSync, writeFileSync, readFileSync, mkdirSync, rmSync, readdirSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, readFileSync, mkdirSync, rmSync, readdirSync, symlinkSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
@@ -199,6 +199,37 @@ const setup = (name, keys = keysWith(entry('a', A))) => { const r = repo(name); 
   const out = spawnSync('bash', [step], { encoding: 'utf8', env: { ...process.env, RUNNER_TEMP: rt, AFTER: 'HEAD', NODE_OPTIONS: `--require ${evil}` } });
   let injected = true; try { readFileSync(marker); } catch { injected = false; }
   results.push({ name: '(9) NODE_OPTIONS set by a pushed step does not reach the trusted check', pass: out.status === 0 && /ran/.test(out.stdout) && !injected, out: (out.stdout + out.stderr).trim() }); }
+// security@'s control 10, no symlinks (ed70bd996), and its pre-review: the step refuses a symlink in any commit from the
+// anchor, in the pushed tree or in the checkout, unless the anchor's exceptions list its exact path and target
+{ const A_KEY = A; const yml = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', '.github', 'workflows', 'pages.yml'), 'utf8').split('\n');
+  const at = yml.findIndex((l) => l === '      - name: Take the security checks from the last verified commit');
+  const run = []; let inRun = false;
+  for (const l of yml.slice(at + 1)) { if (/^      - /.test(l)) break; if (/^        run: \|/.test(l)) { inRun = true; continue; } if (inRun) run.push(l.replace(/^          /, '')); }
+  const step = join(tmp, 'take-checks-c10.sh'); writeFileSync(step, 'set -e\n' + run.join('\n') + '\n');
+  const bin = join(tmp, 'fakebin10'); mkdirSync(bin, { recursive: true });
+  writeFileSync(join(bin, 'gh'), '#!/bin/sh\ncase "$2" in\n  */actions/workflows/pages.yml/runs*) echo "7 $FAKE_DEPLOYED" ;;\n  */actions/runs/7/jobs*) echo 1 ;;\nesac\nexit 0\n', { mode: 0o755 });
+  const checks = { 'scripts/check-signatures.mjs': '//\n', 'scripts/check-commits.mjs': '//\n', 'scripts/leak-scan.mjs': '//\n' };
+  const mk = (name, extra = {}) => { const r = setup(name); mkdirSync(join(r.d, 'scripts'), { recursive: true }); const A = r.commit('the anchor', { key: A_KEY, files: { ...checks, ...extra } }); return { r, A }; };
+  const link = (r, target, path) => { mkdirSync(dirname(join(r.d, path)), { recursive: true }); symlinkSync(target, join(r.d, path)); };
+  const runIt = (r, anchor) => { const rt = join(tmp, 'rt10-' + Math.random().toString(36).slice(2)); mkdirSync(join(rt, 'site-download'), { recursive: true }); writeFileSync(join(rt, 'site-download', 'index.html'), 'x');
+    return spawnSync('bash', [step], { cwd: r.d, encoding: 'utf8', env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, AFTER: r.g('rev-parse', 'HEAD'), REPO: 'x/y', GH_TOKEN: 'none', FAKE_DEPLOYED: anchor, RUNNER_TEMP: rt } }); };
+  const ex = (list) => ({ 'scripts/symlink-exceptions.json': JSON.stringify(list) });
+  { const { r, A } = mk('c10-clean'); r.commit('a file', { key: A_KEY, files: { 'x.txt': '1' } }); expect('(10) a push with no symlink passes', runIt(r, A), true); }
+  { const { r, A } = mk('c10-pushed'); link(r, 'x.txt', 'l.txt'); r.commit('a symlink', { key: A_KEY, files: { 'x.txt': '1' } }); const o = runIt(r, A); expect('(10) a pushed symlink fails in the commit scan', o, false, ': "l.txt" is a symlink'); expect('(10) ... and in the pushed tree', o, false, 'is a symlink in the pushed tree'); expect('(10) ... and in the checkout', o, false, 'is a symlink in the checkout'); }
+  { const { r, A } = mk('c10-listed', ex([{ path: 'l.txt', target: 'x.txt', reason: 'test' }])); link(r, 'x.txt', 'l.txt'); r.commit('a listed symlink', { key: A_KEY, files: { 'x.txt': '1' } }); expect('(10) a symlink the anchor lists, with its target, passes', runIt(r, A), true); }
+  { const { r, A } = mk('c10-pushlist'); link(r, 'x.txt', 'l.txt'); r.commit('lists its own symlink', { key: A_KEY, files: { 'x.txt': '1', ...ex([{ path: 'l.txt', target: 'x.txt', reason: 'test' }]) } }); expect('(10) a symlink listed only in the pushed tree fails', runIt(r, A), false, 'is a symlink in the pushed tree'); }
+  { const { r, A } = mk('c10-repoint', ex([{ path: 'l.txt', target: 'x.txt', reason: 'test' }])); link(r, '/etc', 'l.txt'); r.commit('a listed path, another target', { key: A_KEY }); expect('(10) a listed symlink pointed somewhere else fails', runIt(r, A), false, 'is a symlink in the checkout'); }
+  { const { r, A } = mk('c10-newline', ex([{ path: 'x', target: 'x.txt', reason: 'test' }])); link(r, 'x.txt', 'x\nevil'); r.commit('a name with a newline', { key: A_KEY, files: { 'x.txt': '1' } }); expect('(10) an exception for "x" does not cover a symlink named "x\\nevil"', runIt(r, A), false, '"x\\nevil" is a symlink in the pushed tree'); }
+  { const { r, A } = mk('c10-gone'); link(r, 'x.txt', 'l.txt'); r.commit('a symlink', { key: A_KEY, files: { 'x.txt': '1' } }); rmSync(join(r.d, 'l.txt')); r.commit('and gone again', { key: A_KEY }); expect('(10) a symlink added and removed inside the range still fails', runIt(r, A), false, ': "l.txt" is a symlink'); }
+  { const { r, A } = mk('c10-names'); mkdirSync(join(r.d, 'é dir'), { recursive: true }); r.commit('names with accents, a space and a tab', { key: A_KEY, files: { 'é dir/ç\tx.txt': '1', 'Olhão.txt': '1' } }); expect('(10) non-ASCII, space and tab names pass the walk (the post-review)', runIt(r, A), true); }
+  { const { r, A } = mk('c10-utf8link'); link(r, 'x.txt', 'é/l.txt'); r.commit('a symlink under a non-ASCII name', { key: A_KEY, files: { 'x.txt': '1' } }); expect('(10) a symlink under a non-ASCII directory fails in the checkout too', runIt(r, A), false, '"é/l.txt" is a symlink in the checkout'); }
+  { const { r, A } = mk('c10-typechange', { 'l.txt': 'a file' }); rmSync(join(r.d, 'l.txt')); link(r, 'x.txt', 'l.txt'); r.commit('a file becomes a symlink', { key: A_KEY, files: { 'x.txt': '1' } }); expect('(10) a file changed into a symlink fails', runIt(r, A), false, ': "l.txt" is a symlink'); }
+  { const { r, A } = mk('c10-merge'); r.g('checkout', '-q', '-b', 'side'); r.commit('side', { key: A_KEY, files: { 's.txt': '1' } }); r.g('checkout', '-q', 'main'); r.commit('main', { key: A_KEY, files: { 'm.txt': '1' } });
+    r.g('merge', '-q', '--no-commit', '--no-ff', 'side'); link(r, 'x.txt', 'l.txt'); r.g('add', '-A'); r.g('-c', 'gpg.format=ssh', '-c', `user.signingkey=${A_KEY.f}`, 'commit', '-q', '-S', '-m', 'merge with a symlink', '-m', `Agent: ${AGENT}\nClaude-Session: ${SESSION}`);
+    rmSync(join(r.d, 'l.txt')); r.commit('and gone again', { key: A_KEY }); expect('(10) a symlink introduced only by a merge fails', runIt(r, A), false, ': "l.txt" is a symlink'); }
+  { const { r, A } = mk('c10-gitmodules'); r.commit('a .gitmodules', { key: A_KEY, files: { '.gitmodules': '[submodule "x"]\n\tpath = x\n\turl = https://example.test/x\n' } }); expect('(10) a .gitmodules file fails', runIt(r, A), false, 'is a .gitmodules file'); }
+  { const { r, A } = mk('c10-oldmodules', { '.gitmodules': '[submodule "x"]\n' }); r.commit('a file', { key: A_KEY, files: { 'x.txt': '1' } }); expect('(10) a .gitmodules already in the anchor fails in the pushed tree', runIt(r, A), false, 'is a .gitmodules file in the pushed tree'); }
+  { const { r, A } = mk('c10-badlist', { 'scripts/symlink-exceptions.json': '{"not":"a list"}' }); r.commit('a file', { key: A_KEY, files: { 'x.txt': '1' } }); expect('(10) an exceptions file that is not a list fails', runIt(r, A), false, 'not a JSON list'); } }
 // cyber.b@'s finding (4dd8500, via conductor.b@ 19 Nov 16:25): a quoting slip in a run block breaks the run, so every
 // run block of every workflow must parse (bash -n; GitHub expressions are replaced first)
 { const wdir = join(dirname(fileURLToPath(import.meta.url)), '..', '.github', 'workflows');

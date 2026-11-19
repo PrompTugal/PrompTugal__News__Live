@@ -112,7 +112,6 @@ jobs:
           if [ -n "$(git ls-files -- _site)" ] || [ -L _site ] || [ -e _site ]; then echo "the push carries a _site path: not deploying" >&2; exit 1; fi
           DL="$RUNNER_TEMP/site-download"
           if [ ! -d "$DL" ] || [ -L "$DL" ] || [ -n "$(find "$DL" ! -type f ! -type d -print -quit)" ]; then echo "the built site is missing or holds a symlink or special file: not deploying" >&2; exit 1; fi
-          mv "$DL" _site
           # GIT_ATTR_SOURCE needs git 2.42 or later; an older git would read the pushed attributes, so it stops the run
           GV=$(git version | sed -nE 's/^git version ([0-9]+\.[0-9]+).*/\1/p')
           if [ -z "$GV" ] || [ "$(printf '2.42\n%s\n' "$GV" | sort -V | head -n1)" != "2.42" ]; then echo "git ${GV:-unknown} is older than 2.42: pushed attributes cannot be turned off, not deploying" >&2; exit 1; fi
@@ -128,6 +127,81 @@ jobs:
           if ! printf '%s' "$RUN_ID" | grep -Eq '^[0-9]+$' || [ "$(gh api "repos/$REPO/actions/runs/$RUN_ID/jobs?per_page=50" --jq '[.jobs[] | select(.name == "security" and .conclusion == "success")] | length' || echo 0)" != "1" ]; then A=""; fi
           if ! printf '%s' "$A" | grep -Eq '^[0-9a-f]{40}$' || ! git cat-file -e "$A^{commit}" 2>/dev/null; then echo "no last verified commit (successful push run of this workflow on dev) to take the checks from: not deploying" >&2; exit 1; fi
           if ! git merge-base --is-ancestor "$A" "$AFTER"; then echo "the last verified commit is not an ancestor of this push (a force push): not deploying" >&2; exit 1; fi
+          # Control 10, no symlinks (security@'s ed70bd996, 19 Nov 2026), with its pre-review's hardening: every commit
+          # from A to AFTER, the pushed tree and the checkout. A symlink passes only if A's scripts/symlink-exceptions.json
+          # lists its exact path and target, each with a reason. Paths are compared as whole byte strings, read
+          # NUL-separated, never line by line (events.b@'s 44d5402). Submodules and .gitmodules are refused outright.
+          cat > "$RUNNER_TEMP/control10.mjs" <<'C10'
+          import { execFileSync } from 'node:child_process';
+          import { lstatSync, readdirSync, readlinkSync } from 'node:fs';
+          import { join } from 'node:path';
+          const [A, AFTER] = process.argv.slice(2);
+          const git = (...a) => execFileSync('git', a, { maxBuffer: 1 << 30 }); // Buffers: names stay bytes
+          const L = (b) => Buffer.from(b).toString('latin1'); // one byte, one character: no two names collide
+          const bad = [];
+          let ex = new Map();
+          const exTree = L(git('ls-tree', '-z', A, '--', 'scripts/symlink-exceptions.json'));
+          if (exTree) {
+            if (!exTree.startsWith('100644 blob ')) bad.push('scripts/symlink-exceptions.json in the anchor is not a plain file');
+            else {
+              let list; try { list = JSON.parse(git('show', `${A}:scripts/symlink-exceptions.json`).toString('utf8')); } catch { list = null; }
+              if (!Array.isArray(list)) bad.push('scripts/symlink-exceptions.json in the anchor is not a JSON list');
+              else for (const e of list) {
+                const ok = e && typeof e.path === 'string' && typeof e.target === 'string' && typeof e.reason === 'string' && e.reason.trim() && e.target
+                  && e.path && !e.path.startsWith('/') && !e.path.split('/').some((seg) => seg === '' || seg === '.' || seg === '..');
+                const key = ok ? L(Buffer.from(e.path, 'utf8')) : null;
+                if (!ok || ex.has(key)) { bad.push('a bad or repeated entry in scripts/symlink-exceptions.json: ' + JSON.stringify(e)); continue; }
+                ex.set(key, L(Buffer.from(e.target, 'utf8')));
+              }
+            }
+          }
+          const allowed = (path, target) => ex.has(path) && ex.get(path) === target;
+          const show = (s) => JSON.stringify(Buffer.from(s, 'latin1').toString('utf8'));
+          const records = (buf) => { const t = L(buf).split('\0'); if (t[t.length - 1] === '') t.pop(); return t; };
+          // 1. every commit from A to AFTER, against each of its parents (a merge too), or as a root
+          for (const c of L(git('rev-list', `${A}..${AFTER}`)).split('\n').filter(Boolean)) {
+            const parents = L(git('rev-list', '--parents', '-n', '1', c)).trim().split(' ').slice(1);
+            for (const p of parents.length ? parents : [null]) {
+              const t = records(git('diff-tree', '-r', '-z', '--raw', '--no-renames', '--no-commit-id', ...(p ? [p, c] : ['--root', c])));
+              for (let i = 0; i + 1 < t.length; i += 2) {
+                const [, newMode, , newSha, status] = t[i].replace(/^:/, '').split(' '); // old mode, new mode, old sha, new sha, status
+                const path = t[i + 1];
+                if (status === 'D') continue;
+                if (newMode === '160000') bad.push(`${c.slice(0, 8)}: ${show(path)} is a submodule`);
+                if (path === '.gitmodules' || path.endsWith('/.gitmodules')) bad.push(`${c.slice(0, 8)}: ${show(path)} is a .gitmodules file`);
+                if (newMode === '120000' && !allowed(path, L(git('cat-file', 'blob', newSha)))) bad.push(`${c.slice(0, 8)}: ${show(path)} is a symlink`);
+              }
+            }
+          }
+          // 2. the pushed tree as git holds it, whatever the checkout made of it
+          const tree = records(git('ls-tree', '-r', '-z', AFTER));
+          for (const r of tree) {
+            const m = /^(\d{6}) \w+ ([0-9a-f]{40})\t([\s\S]*)$/.exec(r); if (!m) { bad.push('an unreadable tree entry'); continue; }
+            if (m[1] === '120000' && !allowed(m[3], L(git('cat-file', 'blob', m[2])))) bad.push(`${show(m[3])} is a symlink in the pushed tree`);
+            if (m[1] === '160000') bad.push(`${show(m[3])} is a submodule in the pushed tree`);
+            if (m[3] === '.gitmodules' || m[3].endsWith('/.gitmodules')) bad.push(`${show(m[3])} is a .gitmodules file in the pushed tree`);
+          }
+          let sym = ''; try { sym = L(git('config', '--get', 'core.symlinks')).trim(); } catch {}
+          if (sym === 'false') bad.push('core.symlinks is false: the checkout cannot show symlinks as they are');
+          // 3. the checkout itself, never following a link; .git skipped only when it is a real directory. File system
+          // calls take the raw name bytes; latin1 is only for comparing and showing (the post-review)
+          const walk = (dir, rel) => {
+            for (const name of readdirSync(dir, { encoding: 'buffer' })) {
+              const n = L(name), r = rel ? rel + '/' + n : n, full = Buffer.concat([dir, Buffer.from('/'), name]);
+              const st = lstatSync(full);
+              if (!rel && n === '.git' && st.isDirectory()) continue;
+              if (st.isSymbolicLink()) { if (!allowed(r, L(readlinkSync(full, { encoding: 'buffer' })))) bad.push(`${show(r)} is a symlink in the checkout`); }
+              else if (st.isDirectory()) walk(full, r);
+              else if (!st.isFile()) bad.push(`${show(r)} is a special file in the checkout`);
+            }
+          };
+          walk(Buffer.from('.'), '');
+          if (bad.length) { console.error('control 10, no symlinks: not deploying\n' + [...new Set(bad)].join('\n')); process.exit(1); }
+          console.log(`control 10: no symlink outside the anchor's ${ex.size} exception(s)`);
+          C10
+          NODE_BIN="$(command -v node)"; case "$NODE_BIN" in /*) ;; *) echo "node is not on an absolute path" >&2; exit 1 ;; esac
+          "$NODE_BIN" "$RUNNER_TEMP/control10.mjs" "$A" "$AFTER"
+          mv "$DL" _site
           mkdir -p "$RUNNER_TEMP/trusted"
           printf '%s\n' "$A" > "$RUNNER_TEMP/trusted/anchor"
           for f in check-signatures.mjs check-commits.mjs leak-scan.mjs; do

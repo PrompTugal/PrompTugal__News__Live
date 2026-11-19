@@ -217,6 +217,20 @@ function coastPaths(box) {
   }).join('\n');
 }
 const LABEL_DY = { lagoa: 18 }; // Lagoa's label below its dot, clear of Portimão's
+// London, small, beside Portugal (Dinis, about 17:40 UTC 19 Nov 2026, main repo board/guidance/
+// 2026-11-19-cameras-as-links-and-the-map.md): a miniature in the Algarve map's empty sea (bottom right), the whole of it one link to
+// the London map below. Positions only, from the same register; its squares are not buttons.
+function londonInset(cameras) {
+  const lon = AREAS.find((ar) => ar.id === 'london'), at = { x: 720, y: 226, w: 170, h: 106 }; // in the sea, south-east of Vila Real
+  const pts = cameras.filter((c) => c.decision.embed && inBox(lon.box, c.lat, c.lon)).map((c) => {
+    const [x, y] = xy(lon.box, c.lat, c.lon);
+    return `<rect class="m-cam m-${c.status.state} m-mini" x="${(at.x + x * at.w / lon.box.w - 1).toFixed(1)}" y="${(at.y + y * at.h / lon.box.h - 1).toFixed(1)}" width="2" height="2"></rect>`;
+  });
+  if (!pts.length) return '';
+  return `<a class="m-inset-link" href="#map-london"><rect class="m-inset" x="${at.x}" y="${at.y}" width="${at.w}" height="${at.h}"></rect>
+${pts.join('\n')}
+<text class="m-label" x="${at.x + 6}" y="${at.y + at.h - 6}">London: ${pts.length} to watch</text><title>London, not to scale: ${pts.length} cameras you can watch. Press to go to the London map.</title></a>`;
+}
 function mapSvg(area, places, cameras) {
   const box = area.box;
   const dots = places.filter((p) => inBox(box, p.lat, p.lon)).map((p) => {
@@ -231,13 +245,31 @@ function mapSvg(area, places, cameras) {
     const [x, y] = xy(box, c.lat, c.lon);
     return `<a class="m-cam-link" href="/cameras/${c.id}/" data-view="${c.id}"><rect class="m-cam m-${c.status.state}" x="${(x - r).toFixed(1)}" y="${(y - r).toFixed(1)}" width="${2 * r}" height="${2 * r}"><title>${esc(c.name)}: press to watch</title></rect></a>`;
   }).join('\n');
+  // cameras we may only link to (Dinis, about 17:36 and 17:40 UTC 19 Nov 2026): drawn hollow, the camera's own page,
+  // which links to the operator; never a player
+  const asked = cameras.filter((c) => !c.decision.embed && inBox(box, c.lat, c.lon));
+  const askedR = 6;
+  // several cameras often share one approximate point (from the beach's or the place's name): they are spread in a
+  // small ring around it, said in the caption
+  const seen = new Map();
+  const spot = (c) => { const [x, y] = xy(box, c.lat, c.lon); const k = `${Math.round(x / 4)},${Math.round(y / 4)}`; const n = seen.get(k) || 0; seen.set(k, n + 1); return [x, y, n]; };
+  const placed = asked.map((c) => [c, ...spot(c)]);
+  const asks = placed.map(([c, x0, y0, n]) => {
+    const k = `${Math.round(x0 / 4)},${Math.round(y0 / 4)}`, total = seen.get(k);
+    const ang = (2 * Math.PI * n) / Math.max(total, 1), ring = total > 1 ? 16 : 0;
+    const x = x0 + ring * Math.cos(ang), y = y0 + ring * Math.sin(ang);
+    return `<a class="m-ask-link" href="/cameras/${c.id}/"><rect class="m-cam m-ask" x="${(x - askedR).toFixed(1)}" y="${(y - askedR).toFixed(1)}" width="${2 * askedR}" height="${2 * askedR}"><title>${esc(c.name)}: a link only, until its operator gives permission to show it here</title></rect></a>`;
+  }).join('\n');
+  const inset = area.id === 'algarve' ? londonInset(cameras) : '';
   const how = area.coast ? ` Coastline: <a href="/data/coastline.json">Natural Earth's 1:10m coastline</a> (public domain), coarse at this scale.` : ' Positions only: no streets or river are drawn.';
-  return `<figure class="map" id="map-${area.id}"><p class="map-title">${esc(area.title)}: ${shown.length} camera${shown.length === 1 ? '' : 's'} to watch</p><svg viewBox="0 0 ${box.w} ${box.h}" role="img" aria-labelledby="map-t-${area.id}"><title id="map-t-${area.id}">${esc(area.title)}: the places we cover (circles) and the cameras you can watch here (squares)</title>
+  return `<figure class="map" id="map-${area.id}"><p class="map-title">${esc(area.title)}: ${shown.length} camera${shown.length === 1 ? '' : 's'} to watch${asked.length ? `, ${asked.length} more as links until their operators give permission` : ''}</p><svg viewBox="0 0 ${box.w} ${box.h}" role="img" aria-labelledby="map-t-${area.id}"><title id="map-t-${area.id}">${esc(area.title)}: the places we cover (circles), the cameras you can watch here (filled squares) and the cameras we may only link to (hollow squares)</title>
 <rect class="m-sea" x="0" y="0" width="${box.w}" height="${box.h}"></rect>
 ${area.coast ? coastPaths(box) : ''}
+${inset}
 ${dots}
+${asks}
 ${cams}
-</svg><figcaption>Press a square to watch that camera here, in its operator's own view.${how} Places from data.promptugal.news (Wikidata) where it gives a point${area.id === 'algarve' ? ", else IPMA's list of forecast locations" : ''}; cameras from data.promptugal.news's register. Green square: up at the last check; red: down; grey: not known.</figcaption></figure>`;
+</svg><figcaption>Press a filled square to watch that camera here, in its operator's own view. A hollow square is a camera we may only link to: we show a camera only where we have full right to, by an open licence or its owner's written permission. Press it for its page and the link to its operator. Their positions are approximate, and cameras that share one point are spread around it.${inset ? ' The box at the bottom right is London, not to scale: press it for the London map.' : ''}${how} Places from data.promptugal.news (Wikidata) where it gives a point${area.id === 'algarve' ? ", else IPMA's list of forecast locations" : ''}; cameras from data.promptugal.news's register. Green square: up at the last check; red: down; grey: not known.</figcaption></figure>`;
 }
 
 const stateText = { up: 'up', down: 'down', unknown: 'not known' };
@@ -395,7 +427,7 @@ ${maps}
 <h2>Cameras you can watch here</h2>
 ${watchable.length ? (rest.length ? camTable(rest, placeName) : '') : noWatchable()}
 ${london.length ? `<details class="pending"><summary>Beyond Portugal: London, ${london.length} cameras</summary>${camTable(london, placeName)}</details>` : ''}
-${linkOnly.length ? `<details class="pending"><summary>${linkOnly.length} more cameras are registered but cannot be shown here yet</summary><p>Their operators have not yet offered an embed we may use, so we do not show them on the map. We are asking them. Until then, each links to the operator's own page.</p>${camTable(linkOnly, placeName)}</details>` : ''}
+${linkOnly.length ? `<details class="pending"><summary>${linkOnly.length} more cameras are registered but cannot be shown here yet</summary><p>We show a camera only where we have full right to: an open licence, or its owner's written permission. These operators have not given that, so each links to the operator's own page, and the map draws them as hollow squares.</p>${camTable(linkOnly, placeName)}</details>` : ''}
 <p class="muted">Up or down: <span id="reg-state" data-read="${esc(STATE.register_written || '')}">as at this page's build, from the register written at ${fmtTime(STATE.register_written || '')}</span>. <span id="reg-lic">${STATE.register_license ? `The register: ${a(STATE.register_license.url, STATE.register_license.name)}, PrompTugal.news's record` : `The register gives no licence we can link; we publish our record under ${a('https://creativecommons.org/licenses/by/4.0/', 'CC BY 4.0')}`}; each camera under its operator's terms</span>. Your browser reads <a href="${REGISTER}">data.promptugal.news's register</a> when the page opens and every five minutes; with twice-daily collection, a check older than the register's own stale-after time (13 hours) is marked stale. <a href="/api/v1/cameras.json">The data</a> (CC BY 4.0; each camera under its operator's terms).</p>` }));
 
   write('places/index.html', page({ path: '/places/', current: '/places/', title: 'Places: PrompTugal.news Live', description: 'The places PrompTugal.news Live covers, each with its cameras and the weather there.',
