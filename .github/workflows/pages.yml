@@ -69,6 +69,7 @@ jobs:
   # (security@'s control 9, ruling 16402a95c, 19 Nov 2026).
   security:
     needs: build
+    if: github.ref == 'refs/heads/dev'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -85,10 +86,12 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      # the build output is downloaded outside the checkout, vetted, and only then moved in: a pushed _site symlink can
+      # point anywhere (the 16:08 AppSec review)
       - uses: actions/download-artifact@v4
         with:
           name: site
-          path: _site
+          path: ${{ runner.temp }}/site-download
       # The anchor A is the newest commit a passing run verified, as GitHub itself records it: the head of the latest
       # successful push run of this workflow on dev, read with this run's own token (tags and deployments are not trusted). Every
       # security check below runs from A's tree, with A's config, never the pushed copy, and the range checked is A..AFTER,
@@ -101,12 +104,22 @@ jobs:
           REPO: ${{ github.repository }}
         run: |
           unset NODE_OPTIONS; export GIT_NO_REPLACE_OBJECTS=1
-          # the downloaded site holds plain files and directories only, checked before any trusted file exists (events.b@)
-          if [ -e _site ] && [ -n "$(find _site ! -type f ! -type d -print -quit)" ]; then echo "the built site holds a symlink or special file: not deploying" >&2; exit 1; fi
+          # the pushed tree must not track _site, and the downloaded site holds plain files and directories only; both are
+          # checked before any trusted file exists (events.b@; the 16:08 AppSec review)
+          if [ -n "$(git ls-files -- _site)" ] || [ -L _site ] || [ -e _site ]; then echo "the push carries a _site path: not deploying" >&2; exit 1; fi
+          DL="$RUNNER_TEMP/site-download"
+          if [ ! -d "$DL" ] || [ -L "$DL" ] || [ -n "$(find "$DL" ! -type f ! -type d -print -quit)" ]; then echo "the built site is missing or holds a symlink or special file: not deploying" >&2; exit 1; fi
+          mv "$DL" _site
+          # attributes steer git's diff and log: every .gitattributes in the push is removed; the root one comes from A below
+          git ls-files -z -- ':(glob)**/.gitattributes' '.gitattributes' | xargs -0 -r rm -f --
           if [ "$(git rev-parse --is-shallow-repository)" != "false" ]; then echo "shallow checkout: the checks need the whole history" >&2; exit 1; fi
           # A: the head commit of the latest successful push run of this workflow on dev. Only GitHub Actions creates runs;
           # a deployment can be made by anyone with write access (security@'s ruling 0ba439611, civic.b@'s finding).
-          A=$(gh api "repos/$REPO/actions/workflows/pages.yml/runs?branch=dev&event=push&status=success&per_page=20" --jq '[.workflow_runs[] | select(.path == ".github/workflows/pages.yml" and .head_branch == "dev" and .event == "push" and .conclusion == "success")][0].head_sha // ""')
+          RUN=$(gh api "repos/$REPO/actions/workflows/pages.yml/runs?branch=dev&event=push&status=success&per_page=20" --jq '[.workflow_runs[] | select(.path == ".github/workflows/pages.yml" and .head_branch == "dev" and .event == "push" and .conclusion == "success")][0] | "\(.id) \(.head_sha)"' || true)
+          RUN_ID=${RUN%% *}; A=${RUN#* }
+          # that run must itself have run the security job and passed it, so a pushed workflow without it never becomes the
+          # anchor (the 16:08 AppSec review; only branch protection fully closes a pushed rewrite of the workflow)
+          if ! printf '%s' "$RUN_ID" | grep -Eq '^[0-9]+$' || [ "$(gh api "repos/$REPO/actions/runs/$RUN_ID/jobs?per_page=50" --jq '[.jobs[] | select(.name == "security" and .conclusion == "success")] | length' || echo 0)" != "1" ]; then A=""; fi
           if ! printf '%s' "$A" | grep -Eq '^[0-9a-f]{40}$' || ! git cat-file -e "$A^{commit}" 2>/dev/null; then echo "no last verified commit (successful push run of this workflow on dev) to take the checks from: not deploying" >&2; exit 1; fi
           if ! git merge-base --is-ancestor "$A" "$AFTER"; then echo "the last verified commit is not an ancestor of this push (a force push): not deploying" >&2; exit 1; fi
           mkdir -p "$RUNNER_TEMP/trusted"
@@ -147,7 +160,7 @@ jobs:
           path: _site
   deploy:
     needs: [build, security]
-    if: needs.build.outputs.deploy == 'true'
+    if: github.ref == 'refs/heads/dev' && needs.build.outputs.deploy == 'true'
     runs-on: ubuntu-latest
     permissions:
       pages: write
@@ -160,7 +173,7 @@ jobs:
         uses: actions/deploy-pages@v4
   tag:
     needs: [build, security, deploy]
-    if: ${{ always() && needs.build.result == 'success' && needs.security.result == 'success' && (needs.deploy.result == 'success' || needs.deploy.result == 'skipped') }}
+    if: ${{ always() && github.ref == 'refs/heads/dev' && needs.build.result == 'success' && needs.security.result == 'success' && (needs.deploy.result == 'success' || needs.deploy.result == 'skipped') }}
     runs-on: ubuntu-latest
     permissions:
       contents: write

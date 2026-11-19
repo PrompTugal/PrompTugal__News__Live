@@ -122,7 +122,8 @@ const setup = (name, keys = keysWith(entry('a', A))) => { const r = repo(name); 
   const step = join(tmp, 'take-checks.sh'); writeFileSync(step, 'set -e\n' + run.join('\n') + '\n');
   const bin = join(tmp, 'fakebin'); mkdirSync(bin, { recursive: true });
   // the stand-in gh: the latest successful push run of the workflow on dev has head_sha $FAKE_DEPLOYED (none when empty)
-  writeFileSync(join(bin, 'gh'), '#!/bin/sh\ncase "$2" in\n  */actions/workflows/pages.yml/runs*) echo "$FAKE_DEPLOYED" ;;\nesac\nexit 0\n', { mode: 0o755 });
+  // and that run's jobs include a passed security job ($FAKE_SECURITY_JOBS, default 1)
+  writeFileSync(join(bin, 'gh'), '#!/bin/sh\ncase "$2" in\n  */actions/workflows/pages.yml/runs*) [ -n "$FAKE_DEPLOYED" ] && echo "7 $FAKE_DEPLOYED" ;;\n  */actions/runs/7/jobs*) echo "${FAKE_SECURITY_JOBS:-1}" ;;\nesac\nexit 0\n', { mode: 0o755 });
   const r = setup('workflow'); mkdirSync(join(r.d, 'scripts'), { recursive: true });
   const partial = r.commit('only one check', { key: A, files: { 'scripts/check-signatures.mjs': '//\n' } });
   const full = r.commit('all three checks', { key: A, files: { 'scripts/check-commits.mjs': '//\n', 'scripts/leak-scan.mjs': '//\n' } });
@@ -130,7 +131,9 @@ const setup = (name, keys = keysWith(entry('a', A))) => { const r = repo(name); 
   const head = r.commit('a change', { key: A, files: { 'x.txt': '1' } });
   r.g('checkout', '-q', '-b', 'forced', r.base); const forced = r.commit('a rewritten history', { key: A, files: { 'y.txt': '1' } }); r.g('checkout', '-q', 'main');
   const rt = join(tmp, 'rt');
-  const runStep = (deployed, after) => { rmSync(rt, { recursive: true, force: true }); mkdirSync(rt); return spawnSync('bash', [step], { cwd: r.d, encoding: 'utf8', env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, AFTER: after, REPO: 'x/y', GH_TOKEN: 'none', FAKE_DEPLOYED: deployed, RUNNER_TEMP: rt } }); };
+  const runStep = (deployed, after, extra = {}, plant) => { rmSync(rt, { recursive: true, force: true }); mkdirSync(join(rt, 'site-download'), { recursive: true }); writeFileSync(join(rt, 'site-download', 'index.html'), 'x');
+    rmSync(join(r.d, '_site'), { recursive: true, force: true }); if (plant) plant(join(rt, 'site-download'));
+    return spawnSync('bash', [step], { cwd: r.d, encoding: 'utf8', env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, AFTER: after, REPO: 'x/y', GH_TOKEN: 'none', FAKE_DEPLOYED: deployed, RUNNER_TEMP: rt, ...extra } }); };
   const good = runStep(full, head);
   const anchor = good.status === 0 ? readFileSync(join(rt, 'trusted', 'anchor'), 'utf8').trim() : '';
   results.push({ name: '(7) the checks come from the latest successful run, not from a pushed tag on an unverified commit', pass: good.status === 0 && anchor === full, out: (good.stdout + good.stderr).trim() });
@@ -142,9 +145,13 @@ const setup = (name, keys = keysWith(entry('a', A))) => { const r = repo(name); 
     expect('(9) a symlink on the checks\' paths is refused', runStep(full, head), false, 'is a symlink');
     rmSync(join(r.d, 'scripts')); execFileSync('mv', [real, join(r.d, 'scripts')]); }
   // events.b@'s finding: a symlink in the downloaded site is refused before any trusted file is written
-  { mkdirSync(join(r.d, '_site'), { recursive: true }); execFileSync('ln', ['-s', '/etc/passwd', join(r.d, '_site', 'x.txt')]);
-    expect('a symlink in the downloaded site is refused', runStep(full, head), false, 'symlink or special file');
-    rmSync(join(r.d, '_site'), { recursive: true, force: true }); }
+  expect('a symlink in the downloaded site is refused', runStep(full, head, {}, (dl) => execFileSync('ln', ['-s', '/etc/passwd', join(dl, 'x.txt')])), false, 'symlink or special file');
+  // the 16:08 AppSec review: a _site path in the push (a symlink that the download would write through) is refused
+  { const rs = runStep(full, head); rmSync(join(r.d, '_site'), { recursive: true, force: true }); execFileSync('ln', ['-s', '.git', join(r.d, '_site')]);
+    rmSync(rt, { recursive: true, force: true }); mkdirSync(join(rt, 'site-download'), { recursive: true });
+    expect('a _site symlink in the push is refused before the site is moved in', spawnSync('bash', [step], { cwd: r.d, encoding: 'utf8', env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, AFTER: head, REPO: 'x/y', GH_TOKEN: 'none', FAKE_DEPLOYED: full, RUNNER_TEMP: rt } }), false, 'carries a _site path');
+    rmSync(join(r.d, '_site'), { force: true }); results.push({ name: 'the step moves the vetted site into _site', pass: rs.status === 0, out: (rs.stdout + rs.stderr).trim() }); }
+  expect('an anchor run that did not pass the security job is not used', runStep(full, head, { FAKE_SECURITY_JOBS: '0' }), false, 'no last verified commit');
   // (1) of ruling 948820a7e: an unsigned commit from a dropped run, between the anchor and the previous head, fails
   expect('(1) an unsigned commit between the anchor and the previous head (a dropped run) fails', spawnSync('node', [r.script, full, head], { cwd: r.d, encoding: 'utf8' }), false, 'not signed by a key'); }
 // security@'s control 9 (ruling 16402a95c): the checks run in a job that runs no pushed code; the build reaches it as data
@@ -155,6 +162,8 @@ const setup = (name, keys = keysWith(entry('a', A))) => { const r = repo(name); 
   const runsPushed = job.some((l) => /(^|\s|")node\s+(scripts|tests)\//.test(l) || /\bnpm\b|\bnpx\b/.test(l));
   const deploy = lines.slice(lines.indexOf('  deploy:'), lines.indexOf('  deploy:') + 3).join('\n');
   results.push({ name: '(9) the security job uses only checkout, setup-node, download-artifact and upload-pages-artifact, and runs no pushed script', pass: from > 0 && uses.length === 4 && uses.every((u) => /^actions\/(checkout|setup-node|download-artifact|upload-pages-artifact)@v\d+$/.test(u)) && !runsPushed, out: uses.join(', ') });
+  const jobIf = (name) => { const i = lines.indexOf(`  ${name}:`); return lines.slice(i + 1, i + 4).find((l) => /^    if: /.test(l)) || ''; };
+  results.push({ name: 'the security, deploy and tag jobs run only for dev (a manual run on another branch never deploys)', pass: ['security', 'deploy', 'tag'].every((j) => jobIf(j).includes("github.ref == 'refs/heads/dev'")), out: ['security', 'deploy', 'tag'].map(jobIf).join(' | ') });
   results.push({ name: '(9) deploy needs the security job', pass: /needs: \[build, security\]/.test(deploy), out: deploy });
   // a pushed build step can set NODE_OPTIONS for later steps of its own job only; each security step clears it anyway
   const at = lines.findIndex((l) => l === '      - name: Signed commits (every commit after the pinned base; the trusted check)');
