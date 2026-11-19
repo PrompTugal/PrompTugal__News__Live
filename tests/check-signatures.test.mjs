@@ -107,6 +107,29 @@ const setup = (name, keys = keysWith(entry('a', A))) => { const r = repo(name); 
 { const r = setup('shallowsrc'); r.commit('signed', { key: A, files: { 'x.txt': '1' } }); r.commit('signed 2', { key: A, files: { 'x.txt': '2' } });
   const d = join(tmp, 'shallow'); execFileSync('git', ['clone', '-q', '--depth', '1', `file://${r.d}`, d]);
   expect('(6) a shallow clone is refused', spawnSync('node', [r.script, '', 'HEAD'], { cwd: d, encoding: 'utf8' }), false, 'shallow clone'); }
+// security@'s control 8 (ruling 3724c9ca2): a backdated orphan fails too; no skip is decided by date
+{ const r = setup('backdated-orphan'); r.commit('main, signed', { key: A, files: { 'm.txt': '1' } }); r.g('checkout', '-q', '--orphan', 'old'); r.g('rm', '-rq', '--cached', '.');
+  const env = { ...process.env, GIT_COMMITTER_DATE: '2001-01-01T00:00:00Z', GIT_AUTHOR_DATE: '2001-01-01T00:00:00Z' };
+  writeFileSync(join(r.d, 'o.txt'), '1'); execFileSync('git', ['add', '-A'], { cwd: r.d }); execFileSync('git', ['-c', 'gpg.format=ssh', '-c', `user.signingkey=${B.f}`, 'commit', '-q', '-S', '-m', 'old orphan', '-m', `Agent: ${AGENT}\nClaude-Session: ${SESSION}`], { cwd: r.d, env });
+  r.g('checkout', '-q', '-f', 'main'); r.g('-c', 'gpg.format=ssh', '-c', `user.signingkey=${A.f}`, 'merge', '-q', '-S', '--allow-unrelated-histories', '-m', 'merge', '-m', `Agent: ${AGENT}\nClaude-Session: ${SESSION}`, 'old');
+  expect('(8) a backdated orphan merged in fails', r.check(r.base, 'HEAD'), false, 'a root commit after the pinned base'); }
+// security@'s control 7 (ruling 3724c9ca2): the workflow step that takes the checks from BEFORE, run as pages.yml has it
+{ const yml = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', '.github', 'workflows', 'pages.yml'), 'utf8').split('\n');
+  const at = yml.findIndex((l) => l.includes('name: Take the security checks from the previous head of dev'));
+  const run = []; let inRun = false;
+  for (const l of yml.slice(at + 1)) { if (/^      - /.test(l)) break; if (/^        run: \|/.test(l)) { inRun = true; continue; } if (inRun) run.push(l.replace(/^          /, '')); }
+  const step = join(tmp, 'take-checks.sh'); writeFileSync(step, 'set -e\n' + run.join('\n') + '\n');
+  const r = setup('workflow'); mkdirSync(join(r.d, 'scripts'), { recursive: true });
+  const partial = r.commit('only one check', { key: A, files: { 'scripts/check-signatures.mjs': '//\n' } });
+  const full = r.commit('all three checks', { key: A, files: { 'scripts/check-commits.mjs': '//\n', 'scripts/leak-scan.mjs': '//\n' } });
+  const head = r.commit('a change', { key: A, files: { 'x.txt': '1' } });
+  r.g('checkout', '-q', '-b', 'forced', r.base); const forced = r.commit('a rewritten history', { key: A, files: { 'y.txt': '1' } });
+  const runStep = (before, after) => { mkdirSync(join(tmp, 'rt'), { recursive: true }); return spawnSync('bash', [step], { cwd: r.d, encoding: 'utf8', env: { ...process.env, BEFORE: before, AFTER: after, RUNNER_TEMP: join(tmp, 'rt') } }); };
+  r.g('checkout', '-q', 'main');
+  expect('(7) the checks are taken from BEFORE when it holds all of them', runStep(full, head), true);
+  expect('(7) a BEFORE with no copy of a check fails, with no fallback', runStep(partial, head), false, 'has no scripts/check-commits.mjs');
+  expect('(7) a zero BEFORE (a new branch) fails', runStep('0000000000000000000000000000000000000000', head), false, 'no previous head of dev');
+  expect('(7) a BEFORE that is not an ancestor of AFTER (a force push) fails', runStep(full, forced), false, 'not an ancestor of this push'); }
 { const r = setup('older'); expect('the base itself and its ancestors are skipped, not failed', r.check(r.base + '~0', 'HEAD'), true); }
 
 rmSync(tmp, { recursive: true, force: true });

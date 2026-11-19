@@ -10,7 +10,7 @@ key it published in the repository it maintains, and names its session.
   session only (a 0600 file outside the repository), never in a commit, page, log or message, and ends with the session.
 - Every commit after the pinned base (6a25919, the commit that published the key) is signed. `scripts/check-signatures.mjs`
   checks every commit in the pushed range, in `scripts/release.sh` before each push and in CI before anything deploys.
-- Tests: `tests/check-signatures.test.mjs` (28 cases in throwaway repositories with throwaway keys; each failing case must
+- Tests: `tests/check-signatures.test.mjs` (33 cases in throwaway repositories with throwaway keys; each failing case must
   fail for its stated reason).
 
 ## Threats and controls
@@ -24,7 +24,7 @@ key it published in the repository it maintains, and names its session.
 | A push that weakens a check that judges it | In CI every security check runs as the previous head of dev had it, with that head's config: the signature check, the trailer check (and its exemptions file) and the leak scan (with its allow list). A previous head missing any of them stops the deploy; there is no fallback (security@'s control 7, widened, 19 Nov 2026). The pinned base cannot be overridden by any setting. The functional build uses the pushed tree. The workflow file itself can still be changed by a push; branch protection is Dinis's to add later (19 Nov, about 03:15 UTC), so until then a person reviewing pushes is the remaining control. |
 | A side branch keeping a removed or superseded key alive | The key must also be listed, and not superseded, in the pushed head's `team/keys.json`; a superseded key fails whatever the commit's date. |
 | A tag or a dropped CI run narrowing what is checked | CI checks the whole history after the base on every push, not a range from a tag. |
-| A force-push (a range that does not run forwards) | A start that is not an ancestor of the end fails. Branch protection against force-pushes is the real control, and is Dinis's to add. |
+| A force-push (a range that does not run forwards) | A start that is not an ancestor of the end fails, in the check and in the workflow step that takes the checks from the previous head (which also fails on a zero or missing previous head). A release tag counts only if it is an ancestor of the previous head (security@'s ruling 3724c9ca2). Branch protection against force-pushes is the real control, and is Dinis's to add. |
 | One key listed twice with different sessions | A fingerprint listed twice is not used. |
 | Two keys for one agent, one judged by the other's session | The key is found by its fingerprint from the signature, not by the principal. |
 | Principals that inject options into the allowed-signers file | Only plain agent names are accepted; any other entry is not used. Only Ed25519 keys are used. |

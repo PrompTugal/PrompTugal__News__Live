@@ -51,9 +51,11 @@ jobs:
       - name: Take the security checks from the previous head of dev
         env:
           BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.sha }}
         run: |
           if [ "$(git rev-parse --is-shallow-repository)" != "false" ]; then echo "shallow checkout: the checks need the whole history" >&2; exit 1; fi
           if ! git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then echo "no previous head of dev to take the checks from: not deploying" >&2; exit 1; fi
+          if ! git merge-base --is-ancestor "$BEFORE" "$AFTER"; then echo "the previous head of dev is not an ancestor of this push (a force push): not deploying" >&2; exit 1; fi
           mkdir -p "$RUNNER_TEMP/trusted"
           for f in check-signatures.mjs check-commits.mjs leak-scan.mjs; do
             git show "$BEFORE:scripts/$f" > "$RUNNER_TEMP/trusted/$f" 2>/dev/null || { echo "the previous head of dev has no scripts/$f: not deploying" >&2; exit 1; }
@@ -70,7 +72,9 @@ jobs:
           BEFORE: ${{ github.event.before }}
           AFTER: ${{ github.sha }}
         run: |
-          last=$(git describe --tags --abbrev=0 --match "v${VERSION_BASE}.*" "$AFTER" 2>/dev/null || true)
+          # a tag counts only if it points to an ancestor of BEFORE (security@'s ruling 3724c9ca2: tags are not trusted)
+          last=$(git describe --tags --abbrev=0 --match "v${VERSION_BASE}.*" "$BEFORE" 2>/dev/null || true)
+          if [ -n "$last" ] && ! git merge-base --is-ancestor "$last" "$BEFORE"; then last=""; fi
           node "$RUNNER_TEMP/trusted/check-commits.mjs" "${last:-$BEFORE}" "$AFTER"
       - name: Signed commits (every commit after the pinned base, the trusted check)
         env:
