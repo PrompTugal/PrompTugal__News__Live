@@ -77,7 +77,7 @@ jobs:
     timeout-minutes: 10
     permissions:
       contents: read
-      deployments: read # to read the anchor: the last successful github-pages deployment (security@'s ruling 948820a7e)
+      actions: read # to read the anchor: the latest successful push run of this workflow on dev (security@'s ruling 0ba439611)
     env:
       GIT_NO_REPLACE_OBJECTS: '1'
       NODE_OPTIONS: ''
@@ -93,8 +93,8 @@ jobs:
         with:
           name: site
           path: _site
-      # The anchor A is the newest commit a passing run verified, as GitHub itself records it: the sha of the last successful
-      # github-pages deployment, read with this run's own token (a pusher cannot write it; tags are not trusted). Every
+      # The anchor A is the newest commit a passing run verified, as GitHub itself records it: the head of the latest
+      # successful push run of this workflow on dev, read with this run's own token (tags and deployments are not trusted). Every
       # security check below runs from A's tree, with A's config, never the pushed copy, and the range checked is A..AFTER,
       # so commits from dropped runs are covered. No A, no copy in A, or A not an ancestor of AFTER: the run fails
       # (security@'s rulings fae9649db, 3724c9ca2 and 948820a7e, 19 Nov 2026). The functional build uses the pushed tree.
@@ -106,11 +106,10 @@ jobs:
         run: |
           unset NODE_OPTIONS; export GIT_NO_REPLACE_OBJECTS=1
           if [ "$(git rev-parse --is-shallow-repository)" != "false" ]; then echo "shallow checkout: the checks need the whole history" >&2; exit 1; fi
-          A=""
-          for id in $(gh api "repos/$REPO/deployments?environment=github-pages&per_page=30" --jq '.[].id'); do
-            if [ "$(gh api "repos/$REPO/deployments/$id/statuses?per_page=1" --jq '.[0].state')" = "success" ]; then A=$(gh api "repos/$REPO/deployments/$id" --jq '.sha'); break; fi
-          done
-          if ! printf '%s' "$A" | grep -Eq '^[0-9a-f]{40}$' || ! git cat-file -e "$A^{commit}" 2>/dev/null; then echo "no last verified commit (successful github-pages deployment) to take the checks from: not deploying" >&2; exit 1; fi
+          # A: the head commit of the latest successful push run of this workflow on dev. Only GitHub Actions creates runs;
+          # a deployment can be made by anyone with write access (security@'s ruling 0ba439611, civic.b@'s finding).
+          A=$(gh api "repos/$REPO/actions/workflows/pages.yml/runs?branch=dev&event=push&status=success&per_page=20" --jq '[.workflow_runs[] | select(.path == ".github/workflows/pages.yml" and .head_branch == "dev" and .event == "push" and .conclusion == "success")][0].head_sha // ""')
+          if ! printf '%s' "$A" | grep -Eq '^[0-9a-f]{40}$' || ! git cat-file -e "$A^{commit}" 2>/dev/null; then echo "no last verified commit (successful push run of this workflow on dev) to take the checks from: not deploying" >&2; exit 1; fi
           if ! git merge-base --is-ancestor "$A" "$AFTER"; then echo "the last verified commit is not an ancestor of this push (a force push): not deploying" >&2; exit 1; fi
           mkdir -p "$RUNNER_TEMP/trusted"
           printf '%s\n' "$A" > "$RUNNER_TEMP/trusted/anchor"

@@ -121,8 +121,8 @@ const setup = (name, keys = keysWith(entry('a', A))) => { const r = repo(name); 
   for (const l of yml.slice(at + 1)) { if (/^      - /.test(l)) break; if (/^        run: \|/.test(l)) { inRun = true; continue; } if (inRun) run.push(l.replace(/^          /, '')); }
   const step = join(tmp, 'take-checks.sh'); writeFileSync(step, 'set -e\n' + run.join('\n') + '\n');
   const bin = join(tmp, 'fakebin'); mkdirSync(bin, { recursive: true });
-  // the stand-in gh: one deployment, id 1, at $FAKE_DEPLOYED with status success; or none when FAKE_DEPLOYED is empty
-  writeFileSync(join(bin, 'gh'), '#!/bin/sh\ncase "$2" in\n  *deployments\\?*) [ -n "$FAKE_DEPLOYED" ] && echo 1 ;;\n  */statuses*) echo success ;;\n  */deployments/1) echo "$FAKE_DEPLOYED" ;;\nesac\nexit 0\n', { mode: 0o755 });
+  // the stand-in gh: the latest successful push run of the workflow on dev has head_sha $FAKE_DEPLOYED (none when empty)
+  writeFileSync(join(bin, 'gh'), '#!/bin/sh\ncase "$2" in\n  */actions/workflows/pages.yml/runs*) echo "$FAKE_DEPLOYED" ;;\nesac\nexit 0\n', { mode: 0o755 });
   const r = setup('workflow'); mkdirSync(join(r.d, 'scripts'), { recursive: true });
   const partial = r.commit('only one check', { key: A, files: { 'scripts/check-signatures.mjs': '//\n' } });
   const full = r.commit('all three checks', { key: A, files: { 'scripts/check-commits.mjs': '//\n', 'scripts/leak-scan.mjs': '//\n' } });
@@ -133,8 +133,8 @@ const setup = (name, keys = keysWith(entry('a', A))) => { const r = repo(name); 
   const runStep = (deployed, after) => { rmSync(rt, { recursive: true, force: true }); mkdirSync(rt); return spawnSync('bash', [step], { cwd: r.d, encoding: 'utf8', env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, AFTER: after, REPO: 'x/y', GH_TOKEN: 'none', FAKE_DEPLOYED: deployed, RUNNER_TEMP: rt } }); };
   const good = runStep(full, head);
   const anchor = good.status === 0 ? readFileSync(join(rt, 'trusted', 'anchor'), 'utf8').trim() : '';
-  results.push({ name: '(7) the checks come from the last successful deployment, not from a pushed tag on an unverified commit', pass: good.status === 0 && anchor === full, out: (good.stdout + good.stderr).trim() });
-  expect('(7) a missing anchor (no successful deployment) fails', runStep('', head), false, 'no last verified commit');
+  results.push({ name: '(7) the checks come from the latest successful run, not from a pushed tag on an unverified commit', pass: good.status === 0 && anchor === full, out: (good.stdout + good.stderr).trim() });
+  expect('(7) a missing anchor (no successful run) fails', runStep('', head), false, 'no last verified commit');
   expect('(7) an anchor with no copy of a check fails, with no fallback', runStep(partial, head), false, 'has no scripts/check-commits.mjs');
   expect('(7) an anchor that is not an ancestor of AFTER (a force push) fails', runStep(full, forced), false, 'not an ancestor of this push');
   // control 9: a symlink on a path the checks write is refused
