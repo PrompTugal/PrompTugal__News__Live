@@ -113,23 +113,32 @@ const setup = (name, keys = keysWith(entry('a', A))) => { const r = repo(name); 
   writeFileSync(join(r.d, 'o.txt'), '1'); execFileSync('git', ['add', '-A'], { cwd: r.d }); execFileSync('git', ['-c', 'gpg.format=ssh', '-c', `user.signingkey=${B.f}`, 'commit', '-q', '-S', '-m', 'old orphan', '-m', `Agent: ${AGENT}\nClaude-Session: ${SESSION}`], { cwd: r.d, env });
   r.g('checkout', '-q', '-f', 'main'); r.g('-c', 'gpg.format=ssh', '-c', `user.signingkey=${A.f}`, 'merge', '-q', '-S', '--allow-unrelated-histories', '-m', 'merge', '-m', `Agent: ${AGENT}\nClaude-Session: ${SESSION}`, 'old');
   expect('(8) a backdated orphan merged in fails', r.check(r.base, 'HEAD'), false, 'a root commit after the pinned base'); }
-// security@'s control 7 (ruling 3724c9ca2): the workflow step that takes the checks from BEFORE, run as pages.yml has it
+// security@'s control 7 (rulings 3724c9ca2 and 948820a7e): the workflow step that takes the checks from the anchor A, the
+// last successful github-pages deployment, run as pages.yml has it, with a stand-in for gh that answers as GitHub would
 { const yml = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', '.github', 'workflows', 'pages.yml'), 'utf8').split('\n');
-  const at = yml.findIndex((l) => l.includes('name: Take the security checks from the previous head of dev'));
+  const at = yml.findIndex((l) => l.includes('name: Take the security checks from the last verified commit'));
   const run = []; let inRun = false;
   for (const l of yml.slice(at + 1)) { if (/^      - /.test(l)) break; if (/^        run: \|/.test(l)) { inRun = true; continue; } if (inRun) run.push(l.replace(/^          /, '')); }
   const step = join(tmp, 'take-checks.sh'); writeFileSync(step, 'set -e\n' + run.join('\n') + '\n');
+  const bin = join(tmp, 'fakebin'); mkdirSync(bin, { recursive: true });
+  // the stand-in gh: one deployment, id 1, at $FAKE_DEPLOYED with status success; or none when FAKE_DEPLOYED is empty
+  writeFileSync(join(bin, 'gh'), '#!/bin/sh\ncase "$2" in\n  *deployments\\?*) [ -n "$FAKE_DEPLOYED" ] && echo 1 ;;\n  */statuses*) echo success ;;\n  */deployments/1) echo "$FAKE_DEPLOYED" ;;\nesac\nexit 0\n', { mode: 0o755 });
   const r = setup('workflow'); mkdirSync(join(r.d, 'scripts'), { recursive: true });
   const partial = r.commit('only one check', { key: A, files: { 'scripts/check-signatures.mjs': '//\n' } });
   const full = r.commit('all three checks', { key: A, files: { 'scripts/check-commits.mjs': '//\n', 'scripts/leak-scan.mjs': '//\n' } });
+  const unverified = r.commit('an unverified commit', { files: { 'z.txt': '1' } }); r.g('tag', 'v0.1.999', unverified);
   const head = r.commit('a change', { key: A, files: { 'x.txt': '1' } });
-  r.g('checkout', '-q', '-b', 'forced', r.base); const forced = r.commit('a rewritten history', { key: A, files: { 'y.txt': '1' } });
-  const runStep = (before, after) => { mkdirSync(join(tmp, 'rt'), { recursive: true }); return spawnSync('bash', [step], { cwd: r.d, encoding: 'utf8', env: { ...process.env, BEFORE: before, AFTER: after, RUNNER_TEMP: join(tmp, 'rt') } }); };
-  r.g('checkout', '-q', 'main');
-  expect('(7) the checks are taken from BEFORE when it holds all of them', runStep(full, head), true);
-  expect('(7) a BEFORE with no copy of a check fails, with no fallback', runStep(partial, head), false, 'has no scripts/check-commits.mjs');
-  expect('(7) a zero BEFORE (a new branch) fails', runStep('0000000000000000000000000000000000000000', head), false, 'no previous head of dev');
-  expect('(7) a BEFORE that is not an ancestor of AFTER (a force push) fails', runStep(full, forced), false, 'not an ancestor of this push'); }
+  r.g('checkout', '-q', '-b', 'forced', r.base); const forced = r.commit('a rewritten history', { key: A, files: { 'y.txt': '1' } }); r.g('checkout', '-q', 'main');
+  const rt = join(tmp, 'rt');
+  const runStep = (deployed, after) => { rmSync(rt, { recursive: true, force: true }); mkdirSync(rt); return spawnSync('bash', [step], { cwd: r.d, encoding: 'utf8', env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, AFTER: after, REPO: 'x/y', GH_TOKEN: 'none', FAKE_DEPLOYED: deployed, RUNNER_TEMP: rt } }); };
+  const good = runStep(full, head);
+  const anchor = good.status === 0 ? readFileSync(join(rt, 'trusted', 'anchor'), 'utf8').trim() : '';
+  results.push({ name: '(7) the checks come from the last successful deployment, not from a pushed tag on an unverified commit', pass: good.status === 0 && anchor === full, out: (good.stdout + good.stderr).trim() });
+  expect('(7) a missing anchor (no successful deployment) fails', runStep('', head), false, 'no last verified commit');
+  expect('(7) an anchor with no copy of a check fails, with no fallback', runStep(partial, head), false, 'has no scripts/check-commits.mjs');
+  expect('(7) an anchor that is not an ancestor of AFTER (a force push) fails', runStep(full, forced), false, 'not an ancestor of this push');
+  // (1) of ruling 948820a7e: an unsigned commit from a dropped run, between the anchor and the previous head, fails
+  expect('(1) an unsigned commit between the anchor and the previous head (a dropped run) fails', spawnSync('node', [r.script, full, head], { cwd: r.d, encoding: 'utf8' }), false, 'not signed by a key'); }
 { const r = setup('older'); expect('the base itself and its ancestors are skipped, not failed', r.check(r.base + '~0', 'HEAD'), true); }
 
 rmSync(tmp, { recursive: true, force: true });

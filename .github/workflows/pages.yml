@@ -22,6 +22,9 @@ jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    permissions:
+      contents: read
+      deployments: read # to read the anchor: the last successful github-pages deployment (security@'s ruling 948820a7e)
     outputs:
       version: ${{ steps.version.outputs.version }}
       deploy: ${{ steps.mode.outputs.deploy }}
@@ -45,37 +48,37 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      # Every security check below runs as the previous head of dev (github.event.before) had it, with that head's config,
-      # never the pushed copy; if that head lacks any of them, the run fails (security@'s control 7, widened, 19 Nov 2026:
-      # fae9649db). The functional build may use the pushed tree.
-      - name: Take the security checks from the previous head of dev
+      # The anchor A is the newest commit a passing run verified, as GitHub itself records it: the sha of the last successful
+      # github-pages deployment, read with this run's own token (a pusher cannot write it; tags are not trusted). Every
+      # security check below runs from A's tree, with A's config, never the pushed copy, and the range checked is A..AFTER,
+      # so commits from dropped runs are covered. No A, no copy in A, or A not an ancestor of AFTER: the run fails
+      # (security@'s rulings fae9649db, 3724c9ca2 and 948820a7e, 19 Nov 2026). The functional build uses the pushed tree.
+      - name: Take the security checks from the last verified commit
         env:
-          BEFORE: ${{ github.event.before }}
           AFTER: ${{ github.sha }}
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
         run: |
           if [ "$(git rev-parse --is-shallow-repository)" != "false" ]; then echo "shallow checkout: the checks need the whole history" >&2; exit 1; fi
-          if ! git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then echo "no previous head of dev to take the checks from: not deploying" >&2; exit 1; fi
-          if ! git merge-base --is-ancestor "$BEFORE" "$AFTER"; then echo "the previous head of dev is not an ancestor of this push (a force push): not deploying" >&2; exit 1; fi
-          mkdir -p "$RUNNER_TEMP/trusted"
-          for f in check-signatures.mjs check-commits.mjs leak-scan.mjs; do
-            git show "$BEFORE:scripts/$f" > "$RUNNER_TEMP/trusted/$f" 2>/dev/null || { echo "the previous head of dev has no scripts/$f: not deploying" >&2; exit 1; }
+          A=""
+          for id in $(gh api "repos/$REPO/deployments?environment=github-pages&per_page=30" --jq '.[].id'); do
+            if [ "$(gh api "repos/$REPO/deployments/$id/statuses?per_page=1" --jq '.[0].state')" = "success" ]; then A=$(gh api "repos/$REPO/deployments/$id" --jq '.sha'); break; fi
           done
-          # the trailer check's config: the previous head's exemptions, or none
-          if git cat-file -e "$BEFORE:scripts/commit-exemptions.json" 2>/dev/null; then git show "$BEFORE:scripts/commit-exemptions.json" > scripts/commit-exemptions.json; else rm -f scripts/commit-exemptions.json; fi
+          if ! printf '%s' "$A" | grep -Eq '^[0-9a-f]{40}$' || ! git cat-file -e "$A^{commit}" 2>/dev/null; then echo "no last verified commit (successful github-pages deployment) to take the checks from: not deploying" >&2; exit 1; fi
+          if ! git merge-base --is-ancestor "$A" "$AFTER"; then echo "the last verified commit is not an ancestor of this push (a force push): not deploying" >&2; exit 1; fi
+          mkdir -p "$RUNNER_TEMP/trusted"
+          printf '%s\n' "$A" > "$RUNNER_TEMP/trusted/anchor"
+          for f in check-signatures.mjs check-commits.mjs leak-scan.mjs; do
+            git show "$A:scripts/$f" > "$RUNNER_TEMP/trusted/$f" 2>/dev/null || { echo "the last verified commit has no scripts/$f: not deploying" >&2; exit 1; }
+          done
+          # the trailer check's config: A's exemptions, or none
+          if git cat-file -e "$A:scripts/commit-exemptions.json" 2>/dev/null; then git show "$A:scripts/commit-exemptions.json" > scripts/commit-exemptions.json; else rm -f scripts/commit-exemptions.json; fi
           # the leak scan finds the repository from its own path, so its trusted copy sits in scripts/ for the run only
           cp "$RUNNER_TEMP/trusted/leak-scan.mjs" scripts/leak-scan.trusted.mjs
-      - name: Every commit since the last release carries an Agent trailer (the trusted check)
-        # Range: from the last release tag (or the push's base if none) to the new head. The tag, not github.event.before:
-        # a newer push cancels a queued run (concurrency), and the surviving run's "before" is the dropped push's head, so the
-        # dropped push's commits were never checked (specialist.code@ finding 3b).
+      - name: Every commit from the last verified commit carries an Agent trailer (the trusted check)
         env:
-          BEFORE: ${{ github.event.before }}
           AFTER: ${{ github.sha }}
-        run: |
-          # a tag counts only if it points to an ancestor of BEFORE (security@'s ruling 3724c9ca2: tags are not trusted)
-          last=$(git describe --tags --abbrev=0 --match "v${VERSION_BASE}.*" "$BEFORE" 2>/dev/null || true)
-          if [ -n "$last" ] && ! git merge-base --is-ancestor "$last" "$BEFORE"; then last=""; fi
-          node "$RUNNER_TEMP/trusted/check-commits.mjs" "${last:-$BEFORE}" "$AFTER"
+        run: node "$RUNNER_TEMP/trusted/check-commits.mjs" "$(cat "$RUNNER_TEMP/trusted/anchor")" "$AFTER"
       - name: Signed commits (every commit after the pinned base, the trusted check)
         env:
           AFTER: ${{ github.sha }}
