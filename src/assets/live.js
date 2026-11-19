@@ -86,10 +86,13 @@
   var DATA = 'https://data.promptugal.news';
   var ISO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?Z$/;
   function utc(s) { return s.slice(0, 10) + ' ' + s.slice(11, 16) + ' UTC'; }
-  // data.promptugal.news collects twice a day (Dinis, about 16:30 UTC 19 Nov 2026, relayed by conductor.b@): a reading is
-  // stale after STALE_H hours, a little more than the gap between two collections
-  var STALE_H = 13;
-  function old(s, hours) { var t = Date.parse(s); return !isFinite(t) || Date.now() - t > hours * 3600000; }
+  // Twice-daily collection (Dinis, about 16:30 UTC 19 Nov 2026, relayed by conductor.b@). Each data file states when it
+  // goes stale (expected_cadence.stale_after_seconds, data.b@'s 8f6a905); a value that is not a whole number of seconds
+  // from 10 minutes to 2 days is not used, and 13 hours (twice a day, plus an hour) stands in
+  var STALE_S = 46800;
+  function staleAfter(d) { var e = d && d.expected_cadence, v = e && typeof e === 'object' ? e.stale_after_seconds : null; return typeof v === 'number' && Number.isInteger(v) && v >= 600 && v <= 172800 ? v : STALE_S; }
+  function hrs(sec) { var h = Math.round(sec / 3600); return h === 1 ? '1 hour' : h + ' hours'; }
+  function old(s, sec) { var t = Date.parse(s); return !isFinite(t) || Date.now() - t > sec * 1000; }
   function getJson(url) { return fetch(url, { credentials: 'omit', referrerPolicy: 'no-referrer', redirect: 'error', cache: 'no-cache' }).then(function (r) { return r.ok ? r.json() : null; }); }
   var BOUNDS = { temp_c: [-30, 55], wind_kmh: [0, 300], humidity_pct: [0, 100], rain_mm: [0, 500], t_min_c: [-30, 55], t_max_c: [-30, 55], rain_prob_pct: [0, 100] };
   // A file's licence beside its figures: the name as text, the link only if it is https with no user info.
@@ -118,7 +121,8 @@
         var st = box.querySelector('[data-k="station"]'); if (st && typeof d.station.name === 'string') st.textContent = d.station.name.slice(0, 80);
         var when = box.querySelector('.wx-when'); if (when) when.textContent = 'reading of ' + utc(r.at);
         var state = box.querySelector('.wx-state');
-        if (state) state.textContent = old(r.at, STALE_H) ? 'stale: the latest file holds no reading from the last 13 hours' : 'the latest file, read when this page opened';
+        var sa = staleAfter(d);
+        if (state) state.textContent = old(r.at, sa) ? 'stale: the latest file holds no reading from the last ' + hrs(sa) + ' (twice-daily collection)' : 'the latest file, read when this page opened (twice-daily collection)';
         box.setAttribute('data-read', r.at);
         try { // last, and on its own: a licence line must never stop the figures
           var ll = box.querySelector('.wx-lic'), own = lic(d.license), ip = d.license && d.license.sources ? lic(d.license.sources.ipma) : null;
@@ -140,7 +144,8 @@
       if (!d || !Array.isArray(d.cameras) || typeof d.read_at !== 'string' || !ISO.test(d.read_at)) return;
       var built = regState ? regState.getAttribute('data-read') || '' : '';
       if (built && ISO.test(built) && Date.parse(d.read_at) < Date.parse(built)) return;
-      if (regState) { regState.textContent = (old(d.read_at, STALE_H) ? 'stale: the register was last written at ' : "from data.promptugal.news's register, written at ") + utc(d.read_at); regState.setAttribute('data-read', d.read_at); }
+      var rsa = staleAfter(d);
+      if (regState) { regState.textContent = (old(d.read_at, rsa) ? 'stale: the register was last written at ' : "from data.promptugal.news's register, written at ") + utc(d.read_at); regState.setAttribute('data-read', d.read_at); }
       var by = Object.create(null);
       d.cameras.slice(0, 3000).forEach(function (c) {
         if (c && typeof c.id === 'string' && /^[a-z0-9][a-z0-9-]{0,63}$/.test(c.id)) by[c.id] = c;
@@ -152,7 +157,7 @@
         var badge = n.querySelector('.st');
         if (badge) { badge.textContent = STATES[st]; badge.className = 'st st-' + st; }
         var when = n.querySelector('.muted');
-        if (when && typeof c.status.checked_at === 'string' && ISO.test(c.status.checked_at)) when.textContent = utc(c.status.checked_at) + (old(c.status.checked_at, STALE_H) ? ' (stale)' : ' (latest)');
+        if (when && typeof c.status.checked_at === 'string' && ISO.test(c.status.checked_at)) when.textContent = utc(c.status.checked_at) + (old(c.status.checked_at, rsa) ? ' (stale)' : ' (latest)');
       });
       try { // last, and on its own
         var rl = document.getElementById('reg-lic'), rlic = lic(d.license);
