@@ -1,20 +1,20 @@
 {
- "about": "The PrompTugal.news sites bar, vendored byte for byte by live.b@PrompTugal.dinis on 19 November 2026 (about 07:20 UTC) from PrompTugal/PrompTugal__News__Website@dev 055e6c14, assets/sites-bar/1.2.0/ (dev@PrompTugal.dinis, to designer@'s spec; Dinis, 19 Nov, about 03:18 UTC: one way to move between the sites, every site from the registry). Never edited here. Each hash is the first 40 hex characters of the file's sha256, checked by the validator; each build also checks every file against the registry's full pin for this version (bar.versions), and stops on a mismatch. The preview template is design/sites-bar/preview-template.svg.txt from the same repository, unchanged since 1.1.0.",
+ "about": "The PrompTugal.news sites bar, vendored byte for byte by live.b@PrompTugal.dinis on 19 November 2026 (1.2.0 at about 07:20 UTC; 1.2.1 at about 07:58 UTC after security@'s go, Website 2d812d6d) from PrompTugal/PrompTugal__News__Website@dev, assets/sites-bar/1.2.1/ (dev@PrompTugal.dinis, to designer@'s spec; Dinis, 19 Nov, about 03:18 UTC: one way to move between the sites, every site from the registry). Never edited here. Each hash is the first 40 hex characters of the file's sha256, checked by the validator; each build also checks every file against the registry's full pin for this version (bar.versions), and stops on a mismatch. The preview template is design/sites-bar/preview-template.svg.txt from the same repository, unchanged since 1.1.0.",
  "license": {
   "name": "Apache-2.0",
   "url": "https://www.apache.org/licenses/LICENSE-2.0"
  },
- "version": "1.2.0",
+ "version": "1.2.1",
  "registry": "https://promptugal.news/api/v1/sites.json",
  "files": {
-  "scripts/vendor/sites-bar/1.2.0/sites-bar-render.mjs": "7d7415a3b37c33d9aa01b09396d6d5aea538d741",
-  "src/assets/sites-bar/1.2.0/sites-bar.css": "23ece79497ffe93d99e474f0f4753309425da85e",
-  "src/assets/sites-bar/1.2.0/sites-bar.js": "ab8e770df4359cdfba3700c8c687609810a63769"
+  "scripts/vendor/sites-bar/1.2.1/sites-bar-render.mjs": "9e7a9456c7dfe8297ad235b8dbd1984354916f1b",
+  "src/assets/sites-bar/1.2.1/sites-bar.css": "86b0e5850d350637ec557c1ccc3456587772c661",
+  "src/assets/sites-bar/1.2.1/sites-bar.js": "1b456039355373ca29ed815f0b8d9ccd7adc814f"
  },
  "registry_keys": {
-  "scripts/vendor/sites-bar/1.2.0/sites-bar-render.mjs": "render",
-  "src/assets/sites-bar/1.2.0/sites-bar.css": "css",
-  "src/assets/sites-bar/1.2.0/sites-bar.js": "js"
+  "scripts/vendor/sites-bar/1.2.1/sites-bar-render.mjs": "render",
+  "src/assets/sites-bar/1.2.1/sites-bar.css": "css",
+  "src/assets/sites-bar/1.2.1/sites-bar.js": "js"
  },
  "template": {
   "scripts/vendor/sites-bar/preview-template.svg.txt": "8d24ca4af9f78b6e79dab00eb4bdef6dbdbcf853"
