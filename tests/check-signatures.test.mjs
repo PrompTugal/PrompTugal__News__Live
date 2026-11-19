@@ -116,7 +116,7 @@ const setup = (name, keys = keysWith(entry('a', A))) => { const r = repo(name); 
 // security@'s control 7 (rulings 3724c9ca2 and 948820a7e): the workflow step that takes the checks from the anchor A, the
 // last successful github-pages deployment, run as pages.yml has it, with a stand-in for gh that answers as GitHub would
 { const yml = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', '.github', 'workflows', 'pages.yml'), 'utf8').split('\n');
-  const at = yml.findIndex((l) => l.includes('name: Take the security checks from the last verified commit'));
+  const at = yml.findIndex((l) => l === '      - name: Take the security checks from the last verified commit');
   const run = []; let inRun = false;
   for (const l of yml.slice(at + 1)) { if (/^      - /.test(l)) break; if (/^        run: \|/.test(l)) { inRun = true; continue; } if (inRun) run.push(l.replace(/^          /, '')); }
   const step = join(tmp, 'take-checks.sh'); writeFileSync(step, 'set -e\n' + run.join('\n') + '\n');
@@ -141,19 +141,23 @@ const setup = (name, keys = keysWith(entry('a', A))) => { const r = repo(name); 
   { const real = join(r.d, 'scripts-real'); execFileSync('mv', [join(r.d, 'scripts'), real]); execFileSync('ln', ['-s', real, join(r.d, 'scripts')]);
     expect('(9) a symlink on the checks\' paths is refused', runStep(full, head), false, 'is a symlink');
     rmSync(join(r.d, 'scripts')); execFileSync('mv', [real, join(r.d, 'scripts')]); }
+  // events.b@'s finding: a symlink in the downloaded site is refused before any trusted file is written
+  { mkdirSync(join(r.d, '_site'), { recursive: true }); execFileSync('ln', ['-s', '/etc/passwd', join(r.d, '_site', 'x.txt')]);
+    expect('a symlink in the downloaded site is refused', runStep(full, head), false, 'symlink or special file');
+    rmSync(join(r.d, '_site'), { recursive: true, force: true }); }
   // (1) of ruling 948820a7e: an unsigned commit from a dropped run, between the anchor and the previous head, fails
   expect('(1) an unsigned commit between the anchor and the previous head (a dropped run) fails', spawnSync('node', [r.script, full, head], { cwd: r.d, encoding: 'utf8' }), false, 'not signed by a key'); }
 // security@'s control 9 (ruling 16402a95c): the checks run in a job that runs no pushed code; the build reaches it as data
 { const lines = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', '.github', 'workflows', 'pages.yml'), 'utf8').split('\n');
   const from = lines.indexOf('  security:'), to = lines.findIndex((l, i) => i > from && /^  [a-z]+:$/.test(l));
   const job = lines.slice(from, to);
-  const uses = job.filter((l) => /^\s+- uses: /.test(l)).map((l) => l.trim().slice(8));
+  const uses = job.filter((l) => /^      - (if: .*\n)?uses: /.test(l) || /^        uses: /.test(l) || /^      - uses: /.test(l)).map((l) => l.trim().replace(/^- /, '').slice(6));
   const runsPushed = job.some((l) => /(^|\s|")node\s+(scripts|tests)\//.test(l) || /\bnpm\b|\bnpx\b/.test(l));
   const deploy = lines.slice(lines.indexOf('  deploy:'), lines.indexOf('  deploy:') + 3).join('\n');
-  results.push({ name: '(9) the security job uses only checkout, setup-node and download-artifact, and runs no pushed script', pass: from > 0 && uses.length === 3 && uses.every((u) => /^actions\/(checkout|setup-node|download-artifact)@v\d+$/.test(u)) && !runsPushed, out: uses.join(', ') });
+  results.push({ name: '(9) the security job uses only checkout, setup-node, download-artifact and upload-pages-artifact, and runs no pushed script', pass: from > 0 && uses.length === 4 && uses.every((u) => /^actions\/(checkout|setup-node|download-artifact|upload-pages-artifact)@v\d+$/.test(u)) && !runsPushed, out: uses.join(', ') });
   results.push({ name: '(9) deploy needs the security job', pass: /needs: \[build, security\]/.test(deploy), out: deploy });
   // a pushed build step can set NODE_OPTIONS for later steps of its own job only; each security step clears it anyway
-  const at = lines.findIndex((l) => l.includes('name: Signed commits (every commit after the pinned base; the trusted check)'));
+  const at = lines.findIndex((l) => l === '      - name: Signed commits (every commit after the pinned base; the trusted check)');
   const run = []; let inRun = false;
   for (const l of lines.slice(at + 1)) { if (/^      - /.test(l)) break; if (/^        run: \|/.test(l)) { inRun = true; continue; } if (inRun) run.push(l.replace(/^          /, '')); }
   const rt = join(tmp, 'rt9'); mkdirSync(join(rt, 'trusted'), { recursive: true }); writeFileSync(join(rt, 'trusted', 'check-signatures.mjs'), "console.log('ran');\n");

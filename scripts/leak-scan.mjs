@@ -19,7 +19,7 @@
 // Public keys are allowed only in team/keys.json and team/keys/*.json, and only
 // when those files hold no private part. Any change to the allowlist below must
 // be narrow (one path, one kind) and say why.
-import { readFileSync, existsSync, statSync, readdirSync } from 'node:fs';
+import { readFileSync, existsSync, statSync, lstatSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
@@ -138,12 +138,17 @@ export function scanText(path, text) {
 }
 
 function isBinary(buf) { return buf.subarray(0, 8000).includes(0); }
+// The only binary files allowed, each still scanned for the exact key and token shapes (library.b@'s LIB-2026-067: a NUL
+// byte must not let a file skip the scan). Any other binary file fails.
+const BINARY_ALLOWED = new Set(['src/preview.png', '_site/preview.png']);
 
+// Never follows a symlink: a link is listed as itself, and fails (LIB-2026-067).
 function walk(dir) {
   if (!existsSync(dir)) return [];
   return readdirSync(dir).flatMap((n) => {
     const p = join(dir, n);
-    return statSync(p).isDirectory() ? walk(p) : [p];
+    const st = lstatSync(p);
+    return st.isDirectory() ? walk(p) : [p];
   });
 }
 
@@ -165,9 +170,16 @@ function scanTree() {
     if (p.startsWith('.sg_vault/local/')) { errors.push(`${p}: a file from .sg_vault/local/ is in the tree (it holds vault keys)`); continue; }
     if (p.startsWith('.sg_vault/bare/')) { skipped++; continue; } // ciphertext, protected by the vault key
     const full = join(root, p);
-    if (!existsSync(full) || statSync(full).isDirectory()) continue; // deleted in the working tree
+    let st; try { st = lstatSync(full); } catch { continue; } // deleted in the working tree
+    if (st.isSymbolicLink()) { errors.push(`${p}: a symlink (never followed by the scan)`); continue; }
+    if (st.isDirectory()) continue;
     const buf = readFileSync(full);
-    if (isBinary(buf)) { skipped++; continue; }
+    if (isBinary(buf)) {
+      if (!BINARY_ALLOWED.has(p)) { errors.push(`${p}: a binary file not on the scan's allowed list`); continue; }
+      const raw = buf.toString('latin1');
+      for (const [kind, re] of SHAPES) if (re.test(raw)) errors.push(`${p}: ${kind}`);
+      skipped++; continue;
+    }
     count++;
     const t = buf.toString('utf8');
     for (const f of scanText(p, t)) errors.push(`${p}:${f.line}: ${f.kind}`);

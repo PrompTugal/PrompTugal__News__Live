@@ -63,10 +63,6 @@ jobs:
           retention-days: 1
       - if: steps.mode.outputs.deploy == 'true'
         uses: actions/configure-pages@v5
-      - if: steps.mode.outputs.deploy == 'true'
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: _site
   # The signature, trailer and leak checks run here, in a job that runs no pushed code: it checks the push out as data,
   # takes the checks from the last verified commit into RUNNER_TEMP and runs them with node by its absolute path, with
   # NODE_OPTIONS cleared and replace objects off. The built site reaches it only as an artifact. Deploy needs it
@@ -105,6 +101,8 @@ jobs:
           REPO: ${{ github.repository }}
         run: |
           unset NODE_OPTIONS; export GIT_NO_REPLACE_OBJECTS=1
+          # the downloaded site holds plain files and directories only, checked before any trusted file exists (events.b@)
+          if [ -e _site ] && [ -n "$(find _site ! -type f ! -type d -print -quit)" ]; then echo "the built site holds a symlink or special file: not deploying" >&2; exit 1; fi
           if [ "$(git rev-parse --is-shallow-repository)" != "false" ]; then echo "shallow checkout: the checks need the whole history" >&2; exit 1; fi
           # A: the head commit of the latest successful push run of this workflow on dev. Only GitHub Actions creates runs;
           # a deployment can be made by anyone with write access (security@'s ruling 0ba439611, civic.b@'s finding).
@@ -120,6 +118,8 @@ jobs:
           for p in scripts scripts/commit-exemptions.json scripts/leak-scan.trusted.mjs _site; do if [ -L "$p" ]; then echo "$p is a symlink: not deploying" >&2; exit 1; fi; done
           if [ -e scripts ] && [ ! -d scripts ]; then echo "scripts is not a directory: not deploying" >&2; exit 1; fi
           mkdir -p scripts
+          # every config that steers git or the checks comes from A, or is removed (signals.b@'s finding)
+          for c in .gitattributes .gitignore; do if [ -L "$c" ]; then echo "$c is a symlink: not deploying" >&2; exit 1; fi; if git cat-file -e "$A:$c" 2>/dev/null; then git show "$A:$c" > "$c"; else rm -f "$c"; fi; done
           # the trailer check's config: A's exemptions, or none
           if git cat-file -e "$A:scripts/commit-exemptions.json" 2>/dev/null; then git show "$A:scripts/commit-exemptions.json" > scripts/commit-exemptions.json; else rm -f scripts/commit-exemptions.json; fi
           # the leak scan finds the repository from its own path, so its trusted copy sits in scripts/ for the run only
@@ -140,6 +140,11 @@ jobs:
         run: |
           unset NODE_OPTIONS; export GIT_NO_REPLACE_OBJECTS=1; NODE_BIN="$(command -v node)"; case "$NODE_BIN" in /*) ;; *) exit 1 ;; esac
           "$NODE_BIN" scripts/leak-scan.trusted.mjs
+      # the deployed bytes are the scanned bytes: the Pages artifact is made here, from the site this job scanned (library.b@)
+      - if: needs.build.outputs.deploy == 'true'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
   deploy:
     needs: [build, security]
     if: needs.build.outputs.deploy == 'true'
