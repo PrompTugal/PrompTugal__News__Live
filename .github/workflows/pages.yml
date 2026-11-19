@@ -22,9 +22,6 @@ jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    permissions:
-      contents: read
-      deployments: read # to read the anchor: the last successful github-pages deployment (security@'s ruling 948820a7e)
     outputs:
       version: ${{ steps.version.outputs.version }}
       deploy: ${{ steps.mode.outputs.deploy }}
@@ -48,6 +45,54 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      - name: The signature check's tests (the check itself runs in the security job, from the last verified commit)
+        run: node tests/check-signatures.test.mjs
+      - run: node scripts/build.mjs
+        env:
+          SITE_VERSION: ${{ steps.version.outputs.version }}
+      - run: node scripts/validate.mjs
+      - name: The register tests (a hostile register, stubbed)
+        run: node tests/generate.test.mjs
+      - name: The leak scan's key rules (security@'s ruling, 19 Nov 2026)
+        run: node tests/leak-scan.test.mjs
+      - name: The built site, as data for the security job
+        uses: actions/upload-artifact@v4
+        with:
+          name: site
+          path: _site
+          retention-days: 1
+      - if: steps.mode.outputs.deploy == 'true'
+        uses: actions/configure-pages@v5
+      - if: steps.mode.outputs.deploy == 'true'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+  # The signature, trailer and leak checks run here, in a job that runs no pushed code: it checks the push out as data,
+  # takes the checks from the last verified commit into RUNNER_TEMP and runs them with node by its absolute path, with
+  # NODE_OPTIONS cleared and replace objects off. The built site reaches it only as an artifact. Deploy needs it
+  # (security@'s control 9, ruling 16402a95c, 19 Nov 2026).
+  security:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      deployments: read # to read the anchor: the last successful github-pages deployment (security@'s ruling 948820a7e)
+    env:
+      GIT_NO_REPLACE_OBJECTS: '1'
+      NODE_OPTIONS: ''
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/download-artifact@v4
+        with:
+          name: site
+          path: _site
       # The anchor A is the newest commit a passing run verified, as GitHub itself records it: the sha of the last successful
       # github-pages deployment, read with this run's own token (a pusher cannot write it; tags are not trusted). Every
       # security check below runs from A's tree, with A's config, never the pushed copy, and the range checked is A..AFTER,
@@ -59,6 +104,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
         run: |
+          unset NODE_OPTIONS; export GIT_NO_REPLACE_OBJECTS=1
           if [ "$(git rev-parse --is-shallow-repository)" != "false" ]; then echo "shallow checkout: the checks need the whole history" >&2; exit 1; fi
           A=""
           for id in $(gh api "repos/$REPO/deployments?environment=github-pages&per_page=30" --jq '.[].id'); do
@@ -71,6 +117,10 @@ jobs:
           for f in check-signatures.mjs check-commits.mjs leak-scan.mjs; do
             git show "$A:scripts/$f" > "$RUNNER_TEMP/trusted/$f" 2>/dev/null || { echo "the last verified commit has no scripts/$f: not deploying" >&2; exit 1; }
           done
+          # no symlink on any path the checks write or read as config (security@'s control 9)
+          for p in scripts scripts/commit-exemptions.json scripts/leak-scan.trusted.mjs _site; do if [ -L "$p" ]; then echo "$p is a symlink: not deploying" >&2; exit 1; fi; done
+          if [ -e scripts ] && [ ! -d scripts ]; then echo "scripts is not a directory: not deploying" >&2; exit 1; fi
+          mkdir -p scripts
           # the trailer check's config: A's exemptions, or none
           if git cat-file -e "$A:scripts/commit-exemptions.json" 2>/dev/null; then git show "$A:scripts/commit-exemptions.json" > scripts/commit-exemptions.json; else rm -f scripts/commit-exemptions.json; fi
           # the leak scan finds the repository from its own path, so its trusted copy sits in scripts/ for the run only
@@ -78,31 +128,21 @@ jobs:
       - name: Every commit from the last verified commit carries an Agent trailer (the trusted check)
         env:
           AFTER: ${{ github.sha }}
-        run: node "$RUNNER_TEMP/trusted/check-commits.mjs" "$(cat "$RUNNER_TEMP/trusted/anchor")" "$AFTER"
-      - name: Signed commits (every commit after the pinned base, the trusted check)
+        run: |
+          unset NODE_OPTIONS; export GIT_NO_REPLACE_OBJECTS=1; NODE_BIN="$(command -v node)"; case "$NODE_BIN" in /*) ;; *) exit 1 ;; esac
+          "$NODE_BIN" "$RUNNER_TEMP/trusted/check-commits.mjs" "$(cat "$RUNNER_TEMP/trusted/anchor")" "$AFTER"
+      - name: Signed commits (every commit after the pinned base; the trusted check)
         env:
           AFTER: ${{ github.sha }}
         run: |
-          node tests/check-signatures.test.mjs
-          node "$RUNNER_TEMP/trusted/check-signatures.mjs" "" "$AFTER"
-      - run: node scripts/build.mjs
-        env:
-          SITE_VERSION: ${{ steps.version.outputs.version }}
-      - run: node scripts/validate.mjs
-      - name: The register tests (a hostile register, stubbed)
-        run: node tests/generate.test.mjs
-      - name: The leak scan's key rules (security@'s ruling, 19 Nov 2026)
-        run: node tests/leak-scan.test.mjs
+          unset NODE_OPTIONS; export GIT_NO_REPLACE_OBJECTS=1; NODE_BIN="$(command -v node)"; case "$NODE_BIN" in /*) ;; *) exit 1 ;; esac
+          "$NODE_BIN" "$RUNNER_TEMP/trusted/check-signatures.mjs" "" "$AFTER"
       - name: Leak scan (tracked files and the built site; the trusted copy)
-        run: node scripts/leak-scan.trusted.mjs
-      - if: steps.mode.outputs.deploy == 'true'
-        uses: actions/configure-pages@v5
-      - if: steps.mode.outputs.deploy == 'true'
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: _site
+        run: |
+          unset NODE_OPTIONS; export GIT_NO_REPLACE_OBJECTS=1; NODE_BIN="$(command -v node)"; case "$NODE_BIN" in /*) ;; *) exit 1 ;; esac
+          "$NODE_BIN" scripts/leak-scan.trusted.mjs
   deploy:
-    needs: build
+    needs: [build, security]
     if: needs.build.outputs.deploy == 'true'
     runs-on: ubuntu-latest
     permissions:
@@ -115,8 +155,8 @@ jobs:
       - id: deployment
         uses: actions/deploy-pages@v4
   tag:
-    needs: [build, deploy]
-    if: ${{ always() && needs.build.result == 'success' && (needs.deploy.result == 'success' || needs.deploy.result == 'skipped') }}
+    needs: [build, security, deploy]
+    if: ${{ always() && needs.build.result == 'success' && needs.security.result == 'success' && (needs.deploy.result == 'success' || needs.deploy.result == 'skipped') }}
     runs-on: ubuntu-latest
     permissions:
       contents: write

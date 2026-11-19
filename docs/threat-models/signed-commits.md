@@ -10,7 +10,7 @@ key it published in the repository it maintains, and names its session.
   session only (a 0600 file outside the repository), never in a commit, page, log or message, and ends with the session.
 - Every commit after the pinned base (6a25919, the commit that published the key) is signed. `scripts/check-signatures.mjs`
   checks every commit in the pushed range, in `scripts/release.sh` before each push and in CI before anything deploys.
-- Tests: `tests/check-signatures.test.mjs` (34 cases in throwaway repositories with throwaway keys; each failing case must
+- Tests: `tests/check-signatures.test.mjs` (38 cases in throwaway repositories with throwaway keys; each failing case must
   fail for its stated reason).
 
 ## Threats and controls
@@ -30,6 +30,7 @@ key it published in the repository it maintains, and names its session.
 | Principals that inject options into the allowed-signers file | Only plain agent names are accepted; any other entry is not used. Only Ed25519 keys are used. |
 | Duplicate or conflicting trailers | Exactly one `Agent:` and one `Claude-Session:`; the session is compared in full. |
 | A shallow clone hiding history (and orphans) | Refused by the check and by the workflow step (security@'s control 6, 19 Nov 2026). |
+| A pushed build step tampering with the checks' job (GITHUB_ENV, GITHUB_PATH, NODE_OPTIONS, replace objects, symlinks) | The checks run in their own job, which runs no pushed code: it checks the push out as data, takes the checks from the anchor into RUNNER_TEMP, and runs them with node by its absolute path, NODE_OPTIONS cleared and GIT_NO_REPLACE_OBJECTS=1; a symlink on the checks' paths is refused; the built site reaches it only as an artifact; deploy and the release tag need it (security@'s control 9, ruling 16402a95c). |
 | ssh-keygen missing in CI | The check stops at once and says so, rather than reporting every commit as unsigned. |
 | The private key leaking | It is never read by any script here; the leak scan fails any private key header in any file, with no exemption. |
 
