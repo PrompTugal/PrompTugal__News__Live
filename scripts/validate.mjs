@@ -38,6 +38,14 @@ const frameHosts = (s) => ((s.match(/frame-src ([^;"]*)/) || [])[1] || '').trim(
 // media-src tokens as host+path, e.g. s3-eu-west-1.amazonaws.com/jamcams.tfl.gov.uk/
 const mediaSrcs = (s) => ((s.match(/media-src ([^;"]*)/) || [])[1] || '').trim().split(/\s+/).filter((t) => t.startsWith('https://')).map((t) => t.slice(8));
 // live.b@PrompTugal.dinis, 2026-11-18: the AppSec checks from the security pre-review of the first version.
+// The shared time-zone-to-country table, as pinned (dev@'s obs_tz in promptugal.news/api/v1/sites.json).
+{
+  const pin = JSON.parse(readFileSync('scripts/vendor/obs-tz/pin.json', 'utf8'));
+  for (const f of [pin.file, '_site/assets/obs/tz-country.json']) {
+    if (!existsSync(f)) { fail(`missing ${f}`); continue; }
+    if (!/^[0-9a-f]{40}$/.test(pin.sha256_prefix || '') || !createHash('sha256').update(readFileSync(f)).digest('hex').startsWith(pin.sha256_prefix)) fail(`${f}: does not match the pinned hash in scripts/vendor/obs-tz/pin.json`);
+  }
+}
 for (const f of files) {
   const s = readFileSync(f, 'utf8');
   // No IP-based place lookup, anywhere (Dinis, 19 Nov 2026, about 03:15 UTC): no page's CSP and no script may name one.

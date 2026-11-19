@@ -4,6 +4,20 @@
 import { cpSync, rmSync, readdirSync, readFileSync, writeFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { generate } from './live/generate.mjs';
+import { createHash } from 'node:crypto';
+import { fetchJson } from './live/lib.mjs';
+
+// The shared time-zone-to-country table: while the registry names the version we pinned, the file must match the
+// registry's full integrity string; a mismatch stops the build. A newer version there is reported, never taken here.
+{
+  const pin = JSON.parse(readFileSync('scripts/vendor/obs-tz/pin.json', 'utf8'));
+  const r = await fetchJson(pin.registry, { host: 'promptugal.news', maxBytes: 2_000_000 });
+  const tz = r.ok && r.data && typeof r.data.obs_tz === 'object' ? r.data.obs_tz : null;
+  if (!tz) console.log(`obs_tz: registry not read (${r.why || 'no obs_tz'}); the pinned hash is still checked by the validator`);
+  else if (tz.version !== pin.version) console.log(`obs_tz: the registry has ${String(tz.version).slice(0, 20)}, live pins ${pin.version}: upgrade by hand`);
+  else if ('sha256-' + createHash('sha256').update(readFileSync(pin.file)).digest('base64') !== tz.integrity) { console.error(`obs_tz: ${pin.file} does not match the registry's integrity for ${pin.version}: not deploying`); process.exit(1); }
+  else console.log(`obs_tz: ${pin.version} matches the registry's integrity`);
+}
 const version = process.env.SITE_VERSION || 'dev';
 rmSync('_site', { recursive: true, force: true });
 cpSync('src', '_site', { recursive: true });

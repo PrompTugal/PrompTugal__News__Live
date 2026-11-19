@@ -11,7 +11,7 @@
 //   read  the first time the tab is hidden or closed: seconds the page was visible and the deepest scroll (percent).
 // Each says: the page, the referring site (host only), the time to the minute, the site version, a random id that
 // ends with the tab, the screen size class, the browser's language and time zone, an automation class if a bot
-// declares itself, and the country, worked out in the browser from its own time zone through the fixed table below,
+// declares itself, and the country, worked out in the browser from its own time zone through the shared table (tz-country.json),
 // with no network call (Dinis, 19 Nov 2026, about 03:15 UTC: "remove the IP base. So we're going to keep the country
 // still."; no region, city or map position, and no third-party lookup). No IP address, no cookie, no user-agent
 // string, no browser fingerprint. Sealed here to the drain key (sgit hybrid
@@ -64,51 +64,18 @@
             : /Googlebot/i.test(ua) ? 'googlebot' : /bingbot/i.test(ua) ? 'bingbot' : /bot|crawl|spider|slurp/i.test(ua) ? 'bot' : ''
         const w = window.innerWidth || 1024
         let ref = ''; try { ref = document.referrer ? new URL(document.referrer).host : '' } catch { }
-        // the country, once per tab, from the browser's own time zone through this fixed table (Dinis, 19 Nov 2026, about
-        // 03:15 UTC): no network call, no region, city or position. A zone not listed gives an empty country.
-        const TZ_COUNTRY = {
-            PT: ['Portugal', 'Europe/Lisbon Atlantic/Madeira Atlantic/Azores'],
-            GB: ['United Kingdom', 'Europe/London Europe/Belfast'],
-            IE: ['Ireland', 'Europe/Dublin'],
-            ES: ['Spain', 'Europe/Madrid Atlantic/Canary Africa/Ceuta'],
-            FR: ['France', 'Europe/Paris'],
-            DE: ['Germany', 'Europe/Berlin Europe/Busingen'],
-            NL: ['Netherlands', 'Europe/Amsterdam'],
-            BE: ['Belgium', 'Europe/Brussels'],
-            LU: ['Luxembourg', 'Europe/Luxembourg'],
-            CH: ['Switzerland', 'Europe/Zurich'],
-            AT: ['Austria', 'Europe/Vienna'],
-            IT: ['Italy', 'Europe/Rome'],
-            DK: ['Denmark', 'Europe/Copenhagen'],
-            SE: ['Sweden', 'Europe/Stockholm'],
-            NO: ['Norway', 'Europe/Oslo'],
-            FI: ['Finland', 'Europe/Helsinki'],
-            PL: ['Poland', 'Europe/Warsaw'],
-            CZ: ['Czechia', 'Europe/Prague'],
-            GR: ['Greece', 'Europe/Athens'],
-            RO: ['Romania', 'Europe/Bucharest'],
-            UA: ['Ukraine', 'Europe/Kyiv Europe/Kiev'],
-            BR: ['Brazil', 'America/Sao_Paulo America/Fortaleza America/Recife America/Bahia America/Belem America/Manaus America/Cuiaba America/Campo_Grande America/Porto_Velho America/Boa_Vista America/Rio_Branco America/Maceio America/Araguaina America/Santarem America/Noronha'],
-            AO: ['Angola', 'Africa/Luanda'],
-            MZ: ['Mozambique', 'Africa/Maputo'],
-            CV: ['Cabo Verde', 'Atlantic/Cape_Verde'],
-            US: ['United States', 'America/New_York America/Chicago America/Denver America/Phoenix America/Los_Angeles America/Anchorage Pacific/Honolulu America/Detroit America/Boise America/Indiana/Indianapolis'],
-            CA: ['Canada', 'America/Toronto America/Vancouver America/Edmonton America/Winnipeg America/Halifax America/St_Johns America/Regina'],
-            AU: ['Australia', 'Australia/Sydney Australia/Melbourne Australia/Brisbane Australia/Perth Australia/Adelaide Australia/Hobart Australia/Darwin'],
-            IN: ['India', 'Asia/Kolkata Asia/Calcutta'],
-            JP: ['Japan', 'Asia/Tokyo'],
-            CN: ['China', 'Asia/Shanghai'],
-            SG: ['Singapore', 'Asia/Singapore'],
-            AE: ['United Arab Emirates', 'Asia/Dubai'],
-            ZA: ['South Africa', 'Africa/Johannesburg'],
-            MA: ['Morocco', 'Africa/Casablanca'],
-            MX: ['Mexico', 'America/Mexico_City'],
-            AR: ['Argentina', 'America/Argentina/Buenos_Aires America/Buenos_Aires']
-        }
-        const place = () => {
-            let tz = ''; try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone || '' } catch { }
-            for (const [cc, [name, list]] of Object.entries(TZ_COUNTRY)) if (list.split(' ').includes(tz)) return { country: name, country_code: cc }
-            return { country: '', country_code: '' }
+        // the country, once per tab, from the browser's own time zone (Dinis, 19 Nov 2026, about 03:15 UTC): looked up in the
+        // estate's one shared table (tz-country.json beside this file, pinned by the registry's obs_tz integrity), as an own
+        // key of a null-prototype map, and kept only if it is two letters A to Z (events.b@'s review: a browser may report any
+        // zone name, __proto__ included). Same origin only: no lookup service, no region, city or position.
+        let tzP = null
+        const place = async () => {
+            let tz = ''; try { tz = String(Intl.DateTimeFormat().resolvedOptions().timeZone || '') } catch { }
+            tzP = tzP || fetch(base + 'tz-country.json', { cache: 'no-cache', credentials: 'omit' }).then(r => r.json())
+                .then(j => Object.assign(Object.create(null), (j && typeof j.zones === 'object' && j.zones) || {}), () => Object.create(null))
+            const table = await tzP
+            const cc = Object.prototype.hasOwnProperty.call(table, tz) ? table[tz] : ''
+            return /^[A-Z]{2}$/.test(cc) ? { country: cc, country_code: cc } : { country: '', country_code: '' }
         }
         // a link's tag (Dinis, 6 November: "I just sent a link to somebody ... I would like to see if they open it ... and
         // forward it"): ?via=<tag> (or utm_source / utm_campaign) on the link you send. Kept for the tab, so the pages read
@@ -145,7 +112,7 @@
             const c = await cfg(); const L = (c.lanes && c.lane && c.lanes[c.lane] && c.lanes[c.lane].length) ? c.lanes[c.lane] : (c.lanes && c.lanes.site) || []
             if (!c.enabled || !L.length) return false
             if (c.lane) ev.lane = c.lane
-            if (!('country' in ev)) Object.assign(ev, place())
+            if (!('country' in ev)) Object.assign(ev, await place())
             const payload = await seal(c.recipient.encrypt, JSON.stringify(ev))
             const start = Math.floor(Math.random() * L.length)   // a random first lane spreads the load
             for (const token of L.map((_, i) => L[(start + i) % L.length])) {
