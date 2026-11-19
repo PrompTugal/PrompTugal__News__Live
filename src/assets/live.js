@@ -80,12 +80,48 @@
         .catch(function () { window.location.href = link.getAttribute('href'); });
     });
   });
+  // Data in the browser (Dinis, 19 Nov 2026): the built figures stay unless the latest file from our own data host
+  // passes its checks (its shape, a newer read time, values within bounds). Every figure says when it was read, and
+  // anything older than its cadence is marked stale. Text only, by textContent. No cookie, no referrer.
+  var DATA = 'https://data.promptugal.news';
+  var ISO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?Z$/;
+  function utc(s) { return s.slice(0, 10) + ' ' + s.slice(11, 16) + ' UTC'; }
+  function old(s, hours) { var t = Date.parse(s); return !isFinite(t) || Date.now() - t > hours * 3600000; }
+  function getJson(url) { return fetch(url, { credentials: 'omit', referrerPolicy: 'no-referrer', redirect: 'error', cache: 'no-cache' }).then(function (r) { return r.ok ? r.json() : null; }); }
+  var BOUNDS = { temp_c: [-30, 55], wind_kmh: [0, 300], humidity_pct: [0, 100], rain_mm: [0, 500], t_min_c: [-30, 55], t_max_c: [-30, 55], rain_prob_pct: [0, 100] };
+  function inb(k, v) { return typeof v === 'number' && isFinite(v) && v >= BOUNDS[k][0] && v <= BOUNDS[k][1]; }
+  function weather() {
+    Array.prototype.forEach.call(document.querySelectorAll('.wx[data-wx]'), function (box) {
+      var id = box.getAttribute('data-wx') || '';
+      if (!/^[a-z0-9][a-z0-9-]{0,63}$/.test(id)) return;
+      getJson(DATA + '/api/v1/by-place/now/' + id + '.json').then(function (d) {
+        if (!d || typeof d !== 'object' || !d.station || typeof d.station !== 'object') return;
+        var r = d.station.reading, fc = d.forecast && Array.isArray(d.forecast.days) ? d.forecast.days[0] : null;
+        if (!r || typeof r !== 'object' || typeof r.at !== 'string' || !ISO.test(r.at)) return;
+        var built = box.getAttribute('data-read') || '';
+        if (built && ISO.test(built) && Date.parse(r.at) < Date.parse(built)) return; // never older than the built copy
+        var vals = { temp_c: r.temp_c, wind_kmh: r.wind_kmh, humidity_pct: r.humidity_pct, rain_mm: r.rain_mm, t_min_c: fc && fc.t_min_c, t_max_c: fc && fc.t_max_c, rain_prob_pct: fc && fc.rain_prob_pct };
+        Object.keys(vals).forEach(function (k) { var el = box.querySelector('[data-k="' + k + '"]'); if (el) el.textContent = inb(k, vals[k]) ? String(vals[k]) : 'not given'; });
+        var st = box.querySelector('[data-k="station"]'); if (st && typeof d.station.name === 'string') st.textContent = d.station.name.slice(0, 80);
+        var when = box.querySelector('.wx-when'); if (when) when.textContent = 'reading of ' + utc(r.at);
+        var state = box.querySelector('.wx-state');
+        if (state) state.textContent = old(r.at, 2) ? 'stale: the latest file holds no reading from the last two hours' : 'the latest file, read when this page opened';
+        box.setAttribute('data-read', r.at);
+      }).catch(function () {});
+    });
+  }
+  weather(); setInterval(weather, 300000);
+  // Camera status: the register, on open and every five minutes.
   var nodes = document.querySelectorAll('[data-cam]');
   if (!nodes.length || !window.fetch) return;
-  fetch(REGISTER, { redirect: 'error', credentials: 'omit', referrerPolicy: 'no-referrer' })
-    .then(function (r) { return r.ok ? r.json() : null; })
+  var regState = document.getElementById('reg-state');
+  function register() {
+  getJson(REGISTER)
     .then(function (d) {
-      if (!d || !Array.isArray(d.cameras)) return;
+      if (!d || !Array.isArray(d.cameras) || typeof d.read_at !== 'string' || !ISO.test(d.read_at)) return;
+      var built = regState ? regState.getAttribute('data-read') || '' : '';
+      if (built && ISO.test(built) && Date.parse(d.read_at) < Date.parse(built)) return;
+      if (regState) { regState.textContent = (old(d.read_at, 3) ? 'stale: the register was last written at ' : "from data.promptugal.news's register, written at ") + utc(d.read_at); regState.setAttribute('data-read', d.read_at); }
       var by = Object.create(null);
       d.cameras.slice(0, 3000).forEach(function (c) {
         if (c && typeof c.id === 'string' && /^[a-z0-9][a-z0-9-]{0,63}$/.test(c.id)) by[c.id] = c;
@@ -97,8 +133,10 @@
         var badge = n.querySelector('.st');
         if (badge) { badge.textContent = STATES[st]; badge.className = 'st st-' + st; }
         var when = n.querySelector('.muted');
-        if (when && typeof c.status.checked_at === 'string') when.textContent = c.status.checked_at.slice(0, 16).replace('T', ' ') + ' UTC (live)';
+        if (when && typeof c.status.checked_at === 'string' && ISO.test(c.status.checked_at)) when.textContent = utc(c.status.checked_at) + (old(c.status.checked_at, 3) ? ' (stale)' : ' (latest)');
       });
     })
     .catch(function () {});
+  }
+  register(); setInterval(register, 300000);
 })();

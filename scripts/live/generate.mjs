@@ -147,18 +147,22 @@ function weatherOf(now) {
     source: safeUrl(st.source), page: safeUrl(st.page),
   };
 }
+// The weather block: the build writes the last known figures (the fallback); live.js replaces them in the browser with
+// data.promptugal.news's latest file for the place when it passes its checks (data in the browser, Dinis, 19 Nov 2026).
 function weatherHtml(w, placeId, placeName) {
   const from = `${DATA}/api/v1/by-place/now/${placeId}.json`;
-  if (!w || !w.station) return `<p class="muted">No weather for ${esc(placeName)} at build time. <a href="${esc(from)}">The data</a>.</p>`;
-  const v = (x, u) => (x === null ? 'not given' : `${esc(x)} ${u}`);
-  return `<table class="kv"><tbody>
-<tr><td>Temperature</td><td>${v(w.temp_c, '°C')}</td></tr>
-<tr><td>Wind</td><td>${v(w.wind_kmh, 'km/h')}</td></tr>
-<tr><td>Humidity</td><td>${v(w.humidity_pct, '%')}</td></tr>
-<tr><td>Rain, last hour</td><td>${v(w.rain_mm, 'mm')}</td></tr>
-<tr><td>Today</td><td>${v(w.t_min_c, '°C')} to ${v(w.t_max_c, '°C')}, rain ${v(w.rain_prob_pct, '% likely')}</td></tr>
+  const v = (x) => (x === null || x === undefined ? 'not given' : esc(x));
+  const has = w && w.station;
+  return `<div class="wx" data-wx="${placeId}" data-read="${esc(has ? w.at : '')}">
+<table class="kv"><tbody>
+<tr><td>Temperature</td><td><span data-k="temp_c">${v(has ? w.temp_c : null)}</span> °C</td></tr>
+<tr><td>Wind</td><td><span data-k="wind_kmh">${v(has ? w.wind_kmh : null)}</span> km/h</td></tr>
+<tr><td>Humidity</td><td><span data-k="humidity_pct">${v(has ? w.humidity_pct : null)}</span> %</td></tr>
+<tr><td>Rain, last hour</td><td><span data-k="rain_mm">${v(has ? w.rain_mm : null)}</span> mm</td></tr>
+<tr><td>Today</td><td><span data-k="t_min_c">${v(has ? w.t_min_c : null)}</span> °C to <span data-k="t_max_c">${v(has ? w.t_max_c : null)}</span> °C, rain <span data-k="rain_prob_pct">${v(has ? w.rain_prob_pct : null)}</span> % likely</td></tr>
 </tbody></table>
-<p class="src">Source: IPMA station ${esc(w.station)}${w.km !== null ? `, ${esc(w.km)} km from ${esc(placeName)}` : ''}, ${w.at ? `reading of ${fmtTime(w.at)}` : 'no reading at build time'}, as collected by <a href="${esc(from)}">data.promptugal.news</a> (${a(IPMA_LICENSE.url, "IPMA's terms")}). The weather is for the place, not the camera's exact spot. Not a warning service: follow ${a('https://www.ipma.pt/', 'IPMA')}.</p>`;
+<p class="src">Source: IPMA station <span data-k="station">${esc(has ? w.station : 'not known')}</span>, <span class="wx-when">${has && w.at ? `reading of ${fmtTime(w.at)}` : 'no reading at build time'}</span> (<span class="wx-state">the copy built with this page</span>), as collected by <a href="${esc(from)}">data.promptugal.news</a> (${a(IPMA_LICENSE.url, "IPMA's terms")}). The weather is for the place, not the camera's exact spot. Not a warning service: follow ${a('https://www.ipma.pt/', 'IPMA')}.</p>
+</div>`;
 }
 
 // A place's point from data.promptugal.news's now file (Wikidata P625, CC0), checked; else null and the IPMA
@@ -283,6 +287,7 @@ export async function generate(outDir = '_site', opts = {}) {
       cameras.push(r.camera);
     }
     STATE.register = `read (${cameras.length} cameras kept, ${STATE.skipped.length} skipped)`;
+    STATE.register_written = typeof reg.data?.read_at === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?Z$/.test(reg.data.read_at) ? reg.data.read_at : '';
     STATE.register_status = 200;
   } else {
     STATE.register = `not available (${reg.why})`;
@@ -370,7 +375,7 @@ ${maps}
 ${watchable.length ? (rest.length ? camTable(rest, placeName) : '') : noWatchable()}
 ${london.length ? `<details class="pending"><summary>Beyond Portugal: London, ${london.length} cameras</summary>${camTable(london, placeName)}</details>` : ''}
 ${linkOnly.length ? `<details class="pending"><summary>${linkOnly.length} more cameras are registered but cannot be shown here yet</summary><p>Their operators have not yet offered an embed we may use, so we do not show them on the map. We are asking them. Until then, each links to the operator's own page.</p>${camTable(linkOnly, placeName)}</details>` : ''}
-<p class="muted">Status is refreshed in your browser from <a href="${REGISTER}">data.promptugal.news</a> when it can be read; otherwise it is as at the last build. <a href="/api/v1/cameras.json">The data</a>.</p>` }));
+<p class="muted">Up or down: <span id="reg-state" data-read="${esc(STATE.register_written || '')}">as at this page's build, from the register written at ${fmtTime(STATE.register_written || '')}</span>. Your browser reads <a href="${REGISTER}">data.promptugal.news's register</a> when the page opens and every five minutes; a check older than three hours is marked stale. <a href="/api/v1/cameras.json">The data</a> (CC BY 4.0; each camera under its operator's terms).</p>` }));
 
   write('places/index.html', page({ path: '/places/', current: '/places/', title: 'Places: PrompTugal.news Live', description: 'The places PrompTugal.news Live covers, each with its cameras and the weather there.',
     body: `<h1>Places</h1><ul class="places">${places.map((p) => `<li><a href="/places/${p.id}/">${esc(p.name)}</a> <span class="muted">${camsIn(p.id).length} camera${camsIn(p.id).length === 1 ? '' : 's'}</span></li>`).join('')}</ul>` }));
