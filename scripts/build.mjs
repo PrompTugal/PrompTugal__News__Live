@@ -17,8 +17,11 @@ const SRI = (f) => 'sha256-' + createHash('sha256').update(readFileSync(f)).dige
 const tidy = (v) => String(v).replace(/[^0-9A-Za-z.+-]/g, '').slice(0, 20);
 const sitesReg = await fetchJson('https://promptugal.news/api/v1/sites.json', { host: 'promptugal.news', maxBytes: 2_000_000 });
 function checkPiece(name, pin, files) {
-  const entry = sitesReg.ok && sitesReg.data && typeof sitesReg.data[name] === 'object' ? sitesReg.data[name] : null;
-  if (!entry) { console.log(`${name}: registry not read (${sitesReg.why || 'no ' + name}); the pinned hash is still checked by the validator`); return ''; }
+  if (!sitesReg.ok) { console.log(`${name}: registry not read (${sitesReg.why}); the pinned hash is still checked by the validator`); return ''; }
+  // read but unusable: stop (the AppSec post-review, 19 Nov: only a failed read may skip the check)
+  const entry = sitesReg.data && typeof sitesReg.data[name] === 'object' && sitesReg.data[name] !== null && !Array.isArray(sitesReg.data[name]) ? sitesReg.data[name] : null;
+  if (!entry || typeof entry.version !== 'string' || !/^\d+\.\d+\.\d+$/.test(entry.version)) { console.error(`${name}: the registry was read but its ${name} entry is missing or malformed: not deploying`); process.exit(1); }
+  if (!Object.keys(files).length) { console.error(`${name}: no files to check: not deploying`); process.exit(1); }
   const v = pin.version;
   const listed = entry.versions && typeof entry.versions === 'object' && Object.prototype.hasOwnProperty.call(entry.versions, v) ? entry.versions[v] : null;
   const want = listed || (entry.version === v ? (typeof entry.integrity === 'string' ? { integrity: entry.integrity } : entry.integrity) : null);

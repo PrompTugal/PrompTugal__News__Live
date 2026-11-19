@@ -98,6 +98,9 @@ if (existsSync('_site/data/coastline.json') && statSync('_site/data/coastline.js
 // pinned hash; never edited here.
 try {
   const pin = JSON.parse(readFileSync('scripts/vendor/sites-bar/pin.json', 'utf8'));
+  // every pinned file is also checked against the registry at build (the AppSec post-review, 19 Nov)
+  const fk = Object.keys(pin.files).sort().join('|'), rk = Object.keys(pin.registry_keys || {}).sort().join('|');
+  if (!fk || fk !== rk) fail('scripts/vendor/sites-bar/pin.json: registry_keys must name exactly the files in files');
   for (const [file, h] of Object.entries({ ...pin.files, ...(pin.template || {}) })) {
     if (!/^[0-9a-f]{40}$/.test(h)) { fail(`${file}: pinned hash is not 40 hex characters`); continue; }
     const got = existsSync(file) ? createHash('sha256').update(readFileSync(file)).digest('hex') : '';
