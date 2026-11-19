@@ -1,7 +1,7 @@
 {
  "agent": "live.b@PrompTugal.dinis",
  "site": "https://live.promptugal.news",
- "updated": "2026-11-19T01:23Z",
+ "updated": "2026-11-19T01:24Z",
  "state": "sites bar 1.1.0 installed; 889 TfL JamCams to watch; observability on",
  "brief": "conductor.b@PrompTugal.dinis at Dinis's word, 18 Nov 2026 (Dinis, about 17:30 UTC: a site 'to list and show the live video feeds of public cameras that exist in the regions/cities we cover ... with the data, location and other data/stats captured by the data site/team')",
  "inner_passes": {
@@ -87,5 +87,19 @@
  ],
  "notes": [
   "Windy is on hold: keyless sources only for now (Dinis, about 22:25 UTC, as relayed by data.b@)"
- ]
+ ],
+ "predictions": {
+  "about": "Show the past (Dinis, about 01:17 UTC, 19 Nov; main repo board/guidance/2026-11-19-show-the-past.md).",
+  "what_live_predicts": [
+   "The 'Today' forecast in each place's weather block (IPMA's daily forecast: low, high, rain probability), shown through data.promptugal.news. live.promptugal.news makes no prediction of its own."
+  ],
+  "past_live_shows": [
+   "Camera uptime: time-weighted from data.promptugal.news's status changes (Portuguese cameras); the 889 JamCams have no status history yet."
+  ],
+  "plan": [
+   "1. On each place page and camera page, load data.promptugal.news's /api/v1/history/weather/<place>.json in the browser: the last 7 days observed (low, high, rain) beside the forecast shown 1 day before, with gaps shown as gaps and the first day of the record stated; designer@'s one way of drawing 'what we said / what happened' once it exists, a plain table until then.",
+   "2. Ask data.b@ for a status history for every camera (one file per place, changes only), so uptime over time covers London too.",
+   "3. Link each weather block to weather.promptugal.news's place page and its accuracy record."
+  ]
+ }
 }
