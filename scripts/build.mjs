@@ -16,7 +16,7 @@ let tzStale = '';
   const r = await fetchJson(pin.registry, { host: 'promptugal.news', maxBytes: 2_000_000 });
   const tz = r.ok && r.data && typeof r.data.obs_tz === 'object' ? r.data.obs_tz : null;
   if (!tz) console.log(`obs_tz: registry not read (${r.why || 'no obs_tz'}); the pinned hash is still checked by the validator`);
-  else if (tz.version !== pin.version) { tzStale = `the registry has ${String(tz.version).slice(0, 20)}, live pins ${pin.version}`; console.log(`obs_tz: ${tzStale}: shipping no table (no country is sent) until the next wake upgrades it`); }
+  else if (tz.version !== pin.version) { tzStale = `obs_tz ${pin.version} off: the registry names ${String(tz.version).replace(/[^0-9A-Za-z.+-]/g, '').slice(0, 20)}`; console.log(`${tzStale} (left out, never shipped unchecked; no country is sent until the next wake upgrades it)`); }
   else if ('sha256-' + createHash('sha256').update(readFileSync(pin.file)).digest('base64') !== tz.integrity) { console.error(`obs_tz: ${pin.file} does not match the registry's integrity for ${pin.version}: not deploying`); process.exit(1); }
   else console.log(`obs_tz: ${pin.version} matches the registry's integrity`);
 }

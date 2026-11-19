@@ -61,6 +61,8 @@ jobs:
       - run: node scripts/validate.mjs
       - name: The register tests (a hostile register, stubbed)
         run: node tests/generate.test.mjs
+      - name: The leak scan's key rules (security@'s ruling, 19 Nov 2026)
+        run: node tests/leak-scan.test.mjs
       - name: Leak scan (tracked files and the built site)
         run: node scripts/leak-scan.mjs
       - if: steps.mode.outputs.deploy == 'true'

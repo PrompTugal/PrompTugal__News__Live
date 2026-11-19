@@ -9,6 +9,8 @@ cd "$(dirname "$0")/.."
 git fetch -q origin dev
 node scripts/build.mjs
 node scripts/validate.mjs
+node tests/generate.test.mjs
+node tests/leak-scan.test.mjs
 node scripts/leak-scan.mjs
 node scripts/check-commits.mjs origin/dev HEAD
 for i in 1 2 3 4 5; do

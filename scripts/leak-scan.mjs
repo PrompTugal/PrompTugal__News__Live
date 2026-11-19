@@ -45,7 +45,13 @@ const SHAPES = [
   ['Google API key', /\bAIza[0-9A-Za-z_-]{35}\b/],
   ['Slack token', /\bxox[abprs]-[A-Za-z0-9-]{10,}/],
   ['Anthropic or OpenAI API key', /\bsk-(?:ant-)?[A-Za-z0-9_-]{20,}/],
+  // security@'s ruling (Website 1acd10498, 19 Nov 2026): an SSH public key outside its published field is flagged by
+  // shape, because the entropy rule alone missed about 1 in 75 (library.b@). Its one published field is
+  // ssh_signing.public_key in team/keys.json and its served copy, once live signs its commits.
+  ['SSH public key outside its published field', /\b(?:ssh-ed25519|ssh-rsa|ecdsa-sha2-nistp(?:256|384|521)|sk-ssh-ed25519@openssh\.com|sk-ecdsa-sha2-nistp256@openssh\.com) AAAA[A-Za-z0-9+\/]{16,}/],
 ];
+// A private key header fails everywhere, with no exemption of any kind (security@, 19 Nov 2026).
+const NEVER_ALLOWED = new Set(['private key block']);
 
 // sgit vault key without its prefix: {passphrase}:{vault_id}. sgit generates a
 // 24-character lowercase alphanumeric passphrase and an 8-character vault id.
@@ -110,7 +116,7 @@ const PUBLIC_KEY_FILES = (p) => p === 'team/keys.json' || p === '_site/keys.json
 // Returns a list of {line, kind} for one file's text. Never returns the match.
 export function scanText(path, text) {
   const found = [];
-  const add = (line, kind) => { if (!allowed(path, kind)) found.push({ line, kind }); };
+  const add = (line, kind) => { if (NEVER_ALLOWED.has(kind) || !allowed(path, kind)) found.push({ line, kind }); };
   let body = text;
   if (PUBLIC_KEY_FILES(path)) {
     if (/private|passphrase|secret|seed/i.test(text)) add(0, 'public key file mentions a private part');
