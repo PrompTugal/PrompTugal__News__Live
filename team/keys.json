@@ -20,6 +20,24 @@
     "fingerprint": "sha256:b4cb807b645bfdc3",
     "signing_fingerprint": "sha256:d55c7440d6943a95"
    }
+  },
+  {
+   "id": "live-b-ssh-signing",
+   "label": "live.b@PrompTugal.dinis, commit signing (Claude Code cloud session)",
+   "agent": "live.b@PrompTugal.dinis",
+   "role": "Lead of live.promptugal.news",
+   "how": "Made by the agent in its own session on 19 November 2026 with ssh-keygen -t ed25519. Only the public half is in this file; the other half never leaves the session and ends with it.",
+   "added": "2026-11-19",
+   "session": "https://claude.ai/code/session_01Kw9UwDFAY9JT754RfGghLe",
+   "ssh": {
+    "public_key_pem": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAWN4JsigBfiNID5V9JFv+lMUpKSmztTCfxEKC01/gLwc=\n-----END PUBLIC KEY-----\n",
+    "type": "ssh-ed25519",
+    "principals": [
+     "live.b@PrompTugal.dinis"
+    ],
+    "from": "2026-11-19"
+   },
+   "for": "Dinis (PrompTugal__News__Website board/guidance/2026-11-19-signed-commits-paid-search-and-free-embeds.md, section 2)"
   }
  ]
 }
