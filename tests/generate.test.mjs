@@ -17,7 +17,7 @@ const cameras = [
   { ...base, id: 'elsewhere', place: 'lisboa', name: 'not ours', page_url: 'https://x.pt/' },
   { ...base, id: 'terms-unclear', name: 'Unclear — dash', page_url: 'https://www.cm-faro.pt/u', terms: { ...base.terms, embedding: 'unclear' }, embed: { allowed: true, url: 'https://player.cm-faro.pt/e/2', host: 'player.cm-faro.pt', how: 'iframe' } },
 ];
-const jamBase = { place: 'london', lat: 51.5, lon: -0.1, operator: { name: 'Transport for London (TfL)', kind: 'ip', url: 'https://tfl.gov.uk/' }, page_url: 'https://tfl.gov.uk/traffic/status/', credit: 'Powered by TfL Open Data', terms: { url: 'https://tfl.gov.uk/terms', checked_at: '2026-11-18', embedding: 'allowed' }, license: { name: 'TfL', url: 'https://tfl.gov.uk/terms', commercial_use: 'allowed' }, status: { state: 'up' } };
+const jamBase = { status_history: 'https://data.promptugal.news/api/v1/cameras/history/london.json', place: 'london', lat: 51.5, lon: -0.1, operator: { name: 'Transport for London (TfL)', kind: 'ip', url: 'https://tfl.gov.uk/' }, page_url: 'https://tfl.gov.uk/traffic/status/', credit: 'Powered by TfL Open Data', terms: { url: 'https://tfl.gov.uk/terms', checked_at: '2026-11-18', embedding: 'allowed' }, license: { name: 'TfL', url: 'https://tfl.gov.uk/terms', commercial_use: 'allowed' }, status: { state: 'up' } };
 const jamEmbed = (u) => ({ allowed: true, how: 'video', host: 's3-eu-west-1.amazonaws.com', path_prefix: '/jamcams.tfl.gov.uk/', video_url: u, image_url: u.replace('.mp4', '.jpg') });
 cameras.push({ ...jamBase, id: 'london-jam-1', name: 'A2 test', embed: jamEmbed('https://s3-eu-west-1.amazonaws.com/jamcams.tfl.gov.uk/00001.1.mp4') });
 cameras.push({ ...jamBase, id: 'london-jam-2', name: 'A3 test', lat: 51.45, license: { name: 'TfL', url: 'https://tfl.gov.uk/terms' }, terms: { ...jamBase.terms, commercial_use: 'allowed' }, embed: jamEmbed('https://s3-eu-west-1.amazonaws.com/jamcams.tfl.gov.uk/00001.2.mp4') });
@@ -33,6 +33,7 @@ const routes = {
   'https://data.promptugal.news/api/v1/by-place/now/faro.json': { coords: { lat: 37.0194, lon: -7.9304 } },
   'https://data.promptugal.news/api/v1/by-place/now/tavira.json': { coords: { lat: '37.1', lon: -7.6 } },
   'https://data.promptugal.news/api/v1/by-place/now/lagos.json': { coords: { lat: 51.5, lon: -0.1 } },
+  'https://data.promptugal.news/api/v1/cameras/history/london.json': { cameras: { 'london-jam-1': [{ at: '2026-11-18T16:00:00Z', state: 'down' }, { at: '2026-11-18T17:00:00Z', state: 'up' }, { at: '2026-11-18T17:30:00Z', state: 'not listed' }] } },
   'https://data.promptugal.news/api/v1/cameras/good-embed/status.json': [{ at: '2026-11-18T15:00:00Z', state: 'up' }, { at: '2026-11-18T16:00:00Z', state: 'down' }, { at: '2026-11-18T17:00:00Z', state: 'up' }, { at: 'bad', state: 'up' }],
 };
 globalThis.fetch = async (u) => {
@@ -81,6 +82,7 @@ const emb = read('embed/good-embed/index.html');
 check(emb.includes("frame-src https://player.cm-faro.pt;") && emb.includes('Live view:') && emb.includes('href="https://www.cm-faro.pt/cam"'), 'embed page: one host, the credit and the link to the operator');
 check(JSON.parse(read('api/v1/cameras/good-embed.json')).camera.view.embed_page === 'https://live.promptugal.news/embed/good-embed/', 'API: embed_page for other sites');
 check(/<path class="m-coast" d="M[0-9. LM-]+"><\/path>/.test(home), 'coastline drawn as numbers-only paths');
+check(read('cameras/london-jam-1/index.html').includes('Up 33% of the 1.5 hours with a known state'), 'a place history file: the camera picks its own list; not listed is unknown');
 const pv = read('preview.svg');
 check(!pv.includes('<b>') && !pv.includes('onmouseover') && !pv.includes('Praia') && /cameras to watch now/.test(pv) && /viewBox="0 0 320 180"/.test(pv) && !/\{\{/.test(pv), 'preview.svg: the 320 by 180 template, counts only, no register text');
 check(JSON.parse(read('preview.json')).numbers.cameras === 10, 'preview.json counts the kept cameras');

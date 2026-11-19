@@ -303,13 +303,16 @@ export async function generate(outDir = '_site', opts = {}) {
 
   // 2. status history and the embed decision for each camera (optional reads stop at the budget)
   const deadline = Date.now() + FETCH_BUDGET_MS;
+  const histCache = new Map();
   for (const c of cameras) {
     c.decision = embedDecision(c, allowHosts);
     c.history = [];
     if (c.status_history && Date.now() < deadline) {
       const hu = c.status_history.startsWith('/') ? `${DATA}${c.status_history}` : c.status_history;
-      const h = await fetchJson(hu, { maxBytes: 1_000_000 });
-      if (h.ok) c.history = normaliseHistory(h.data);
+      // one read per URL: a place's history file serves all its cameras
+      if (!histCache.has(hu)) histCache.set(hu, await fetchJson(hu, { maxBytes: 3_000_000 }));
+      const h = histCache.get(hu);
+      if (h.ok) c.history = normaliseHistory(h.data, c.id);
     }
   }
 

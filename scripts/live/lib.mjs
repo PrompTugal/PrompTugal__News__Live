@@ -132,7 +132,11 @@ export function embedDecision(cam, allowHosts) {
   return { embed: true, kind, host: h, url, poster, src, path_prefix: entry.path_prefix || '' };
 }
 
-export function normaliseHistory(raw) {
-  const list = Array.isArray(raw) ? raw : Array.isArray(obj(raw).history) ? raw.history : [];
+// A history is a list of {at, state} changes: a camera's own file ([...] or {history: [...]}) or, since 19 Nov 2026, one
+// file per place ({cameras: {<id>: [...]}}). "not listed" and anything else count as unknown, never as down.
+export function normaliseHistory(raw, id) {
+  const c = obj(obj(raw).cameras);
+  const own = id && Object.prototype.hasOwnProperty.call(c, id) && Array.isArray(c[id]) ? c[id] : null;
+  const list = own || (Array.isArray(raw) ? raw : Array.isArray(obj(raw).history) ? raw.history : []);
   return list.slice(-500).map((x) => ({ at: iso(obj(x).at), state: pick(obj(x).state, ['up', 'down', 'unknown'], 'unknown') })).filter((x) => x.at);
 }
