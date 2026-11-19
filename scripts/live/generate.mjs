@@ -32,8 +32,8 @@ const a = (url, text, ext = true) => { const u = safeUrl(url); if (!u) return es
 // The policy for one page: frames only from the reviewed iframe sources, video and images only from the reviewed
 // media sources (host and path), each a CSP source expression built by embedDecision().
 // Observability (assets/obs/obs.js, at Dinis's word, 18 Nov 2026): its endpoint, the shared config on promptugal.news and
-// the two place lookups the estate uses (named in promptugal.news's obs.json "geo"), and nothing else.
-const OBS_CONNECT = 'https://dev.send.sgraph.ai https://promptugal.news https://ipapi.co https://ipwho.is';
+// nothing else (no place lookup since 19 Nov 2026, at Dinis's word).
+const OBS_CONNECT = 'https://dev.send.sgraph.ai https://promptugal.news';
 // The sites bar (1.1.0): each pop-up shows that site's /preview.svg as an image and reads its /version.json.
 const BAR_SRC = 'https://promptugal.news https://*.promptugal.news';
 let BAR = ''; // the bar's HTML for this build, from renderSitesBar() or the last deployed bar

@@ -40,6 +40,8 @@ const mediaSrcs = (s) => ((s.match(/media-src ([^;"]*)/) || [])[1] || '').trim()
 // live.b@PrompTugal.dinis, 2026-11-18: the AppSec checks from the security pre-review of the first version.
 for (const f of files) {
   const s = readFileSync(f, 'utf8');
+  // No IP-based place lookup, anywhere (Dinis, 19 Nov 2026, about 03:15 UTC): no page's CSP and no script may name one.
+  if ((/\.(html|js)$/.test(f)) && /ipapi\.co|ipwho\.is/.test(f.endsWith('.html') ? ((s.match(/Content-Security-Policy" content="([^"]*)"/) || [])[1] || '') : s)) fail(`${f}: names an IP place lookup (ipapi.co or ipwho.is)`);
   if (f.endsWith('.html')) {
     if (!/<meta http-equiv="Content-Security-Policy" content="default-src 'none';[^"]*script-src 'self';[^"]*base-uri 'none'/.test(s)) fail(`${f}: no strict Content Security Policy`);
     if (/<script(?![^>]*\bsrc=)[^>]*>/i.test(s)) fail(`${f}: inline script`);
