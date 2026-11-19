@@ -20,6 +20,7 @@
 // - Exactly one Agent: and one Claude-Session: trailer.
 // - A <before> that is not an ancestor of <after> fails; a fingerprint listed twice is not used; a superseded key fails
 //   whatever the commit's date. (The AppSec post-review, 19 Nov 2026.)
+// - A shallow clone is refused (security@'s control 6). Controls 6 and 7 are in the standard from 19 Nov 2026 (a21986a69).
 // In CI the workflow checks the whole history after BASE, with this file as the previous head of dev had it.
 import { execFileSync, spawnSync } from 'node:child_process';
 import { writeFileSync, mkdtempSync, rmSync } from 'node:fs';
@@ -40,6 +41,8 @@ const fail = (msg) => { console.error(`check-signatures: ${msg}`); process.exit(
 const pre = spawnSync('ssh-keygen', ['-Y', 'help'], { encoding: 'utf8' });
 if (pre.error) fail(`ssh-keygen is not available (${pre.error.code}): nothing can be verified, so nothing passes`);
 
+// a shallow clone hides commits, and with them orphans and unsigned history (security@'s control 6, 19 Nov 2026)
+if (tryGit('rev-parse', '--is-shallow-repository') !== 'false') fail('this is a shallow clone (or not a repository): fetch the whole history first');
 const [beforeArg, afterArg] = process.argv.slice(2);
 const after = tryGit('rev-parse', '--verify', '--quiet', `${afterArg || 'HEAD'}^{commit}`);
 if (!after) fail(`${afterArg || 'HEAD'} is not a commit`);

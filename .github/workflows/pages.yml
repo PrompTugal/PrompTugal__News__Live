@@ -64,6 +64,7 @@ jobs:
           # the checker is the one in the previous head of dev (github.event.before), so a push cannot weaken the check that
           # judges it. The one exception is the push whose previous head is BASE itself: it adds the check (the reviews, 19 Nov).
           BASE=6a259197f52db7e78eb0d0d6eb035ac478b23d1e
+          if [ "$(git rev-parse --is-shallow-repository)" != "false" ]; then echo "shallow checkout: the signature check needs the whole history" >&2; exit 1; fi
           if git cat-file -e "$BEFORE:scripts/check-signatures.mjs" 2>/dev/null; then git show "$BEFORE:scripts/check-signatures.mjs" > "$RUNNER_TEMP/check-signatures.mjs"
           elif [ "$BEFORE" = "$BASE" ]; then cp scripts/check-signatures.mjs "$RUNNER_TEMP/check-signatures.mjs"
           else echo "the previous head of dev holds no signature check: not deploying" >&2; exit 1; fi

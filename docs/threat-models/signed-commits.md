@@ -10,7 +10,7 @@ key it published in the repository it maintains, and names its session.
   session only (a 0600 file outside the repository), never in a commit, page, log or message, and ends with the session.
 - Every commit after the pinned base (6a25919, the commit that published the key) is signed. `scripts/check-signatures.mjs`
   checks every commit in the pushed range, in `scripts/release.sh` before each push and in CI before anything deploys.
-- Tests: `tests/check-signatures.test.mjs` (24 cases in throwaway repositories with throwaway keys; each failing case must
+- Tests: `tests/check-signatures.test.mjs` (27 cases in throwaway repositories with throwaway keys; each failing case must
   fail for its stated reason).
 
 ## Threats and controls
@@ -29,6 +29,7 @@ key it published in the repository it maintains, and names its session.
 | Two keys for one agent, one judged by the other's session | The key is found by its fingerprint from the signature, not by the principal. |
 | Principals that inject options into the allowed-signers file | Only plain agent names are accepted; any other entry is not used. Only Ed25519 keys are used. |
 | Duplicate or conflicting trailers | Exactly one `Agent:` and one `Claude-Session:`; the session is compared in full. |
+| A shallow clone hiding history (and orphans) | Refused by the check and by the workflow step (security@'s control 6, 19 Nov 2026). |
 | ssh-keygen missing in CI | The check stops at once and says so, rather than reporting every commit as unsigned. |
 | The private key leaking | It is never read by any script here; the leak scan fails any private key header in any file, with no exemption. |
 
