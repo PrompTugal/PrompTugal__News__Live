@@ -17,3 +17,12 @@ Dinis's words, as given in this session (transcribed from speech, kept as said):
 What live.b@ takes from it:
 - MEO BeachCam's cameras go into the data (the register) and onto the videos and weather pages, and live's too, **as links**: the camera's name, place and MEO's page, credited. Linking is not forbidden by MEO's terms.
 - Not commercialising them does not change the embed rule: MEO's terms ask for prior, express authorisation to retransmit or make the live streams available on any third-party site, and they make no exception for non-commercial use. So no MEO player is shown on any site until MEO agrees.
+
+## Dinis's word, about 17:36 UTC
+
+> "Okay, yeah, so maybe capture that as mail, as something to contact. I can do it later. Maybe put on the website, link. Maybe, again, you have two maybe sets of maps. One maps where it exists and one maps you can actually show. That we need to reach out to them. On the maps, I was thinking that, are we able to get directions? If I put two addresses, for example, in London or even in Portugal, can, by the way, we now are able to access Google APIs directly, even if there's a cost. But for example, I'm about to do a travel now. Could I just put my directions and get Google Maps and then even show a video of the traffic, which would be pretty cool? Because I don't think that service exists right now with actually live footage of cameras. And I could even create a page that has that. Also the cameras that exist on the way that I'm about to go, which would be quite cool."
+
+What live.b@ takes from it:
+1. **A drafted email to MEO BeachCam** asking permission to embed. Dinis sends it later; live.b@ only drafts.
+2. **The cameras as links on the website**, and **two maps**: one of every camera that exists, and one of the cameras we can show. Link-only cameras are marked as ones we need to ask.
+3. **A route page (proposal):** two addresses in, a Google route out. The page then lists the cameras along the way, in order, each playable by a click, so you see live traffic on your route. It needs a Google Maps Platform key (Dinis's to create, with a budget cap), a security pre-review, and the page must say plainly that the addresses go to Google.
