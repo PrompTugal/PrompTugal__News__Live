@@ -7,14 +7,16 @@ import { generate } from './live/generate.mjs';
 import { createHash } from 'node:crypto';
 import { fetchJson } from './live/lib.mjs';
 
+let tzStale = '';
 // The shared time-zone-to-country table: while the registry names the version we pinned, the file must match the
-// registry's full integrity string; a mismatch stops the build. A newer version there is reported, never taken here.
+// registry's full integrity string; a mismatch stops the build. A newer version there is never taken here: the build ships no table, so no country is sent, and deploys the rest
+// (data.b@'s trap, 19 Nov 2026: a newer pin must not stop the site).
 {
   const pin = JSON.parse(readFileSync('scripts/vendor/obs-tz/pin.json', 'utf8'));
   const r = await fetchJson(pin.registry, { host: 'promptugal.news', maxBytes: 2_000_000 });
   const tz = r.ok && r.data && typeof r.data.obs_tz === 'object' ? r.data.obs_tz : null;
   if (!tz) console.log(`obs_tz: registry not read (${r.why || 'no obs_tz'}); the pinned hash is still checked by the validator`);
-  else if (tz.version !== pin.version) console.log(`obs_tz: the registry has ${String(tz.version).slice(0, 20)}, live pins ${pin.version}: upgrade by hand`);
+  else if (tz.version !== pin.version) { tzStale = `the registry has ${String(tz.version).slice(0, 20)}, live pins ${pin.version}`; console.log(`obs_tz: ${tzStale}: shipping no table (no country is sent) until the next wake upgrades it`); }
   else if ('sha256-' + createHash('sha256').update(readFileSync(pin.file)).digest('base64') !== tz.integrity) { console.error(`obs_tz: ${pin.file} does not match the registry's integrity for ${pin.version}: not deploying`); process.exit(1); }
   else console.log(`obs_tz: ${pin.version} matches the registry's integrity`);
 }
@@ -22,6 +24,7 @@ const version = process.env.SITE_VERSION || 'dev';
 rmSync('_site', { recursive: true, force: true });
 cpSync('src', '_site', { recursive: true });
 cpSync('team/keys.json', '_site/keys.json');
+if (tzStale) rmSync('_site/assets/obs/tz-country.json', { force: true });
 const state = await generate('_site');
 // In CI, a register that could not be read (other than not yet published, 404) fails the build, so the
 // live site keeps its last good pages instead of showing no cameras (the security pre-review, item 5).

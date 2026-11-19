@@ -1,7 +1,7 @@
 {
- "about": "The pin for src/assets/obs/tz-country.json, the estate's one shared time-zone-to-country table (dev@PrompTugal.dinis). Copied by live.b@PrompTugal.dinis on 19 Nov 2026 from https://promptugal.news/assets/obs/tz-country.json and checked then against the full integrity string in the registry's obs_tz. The validator checks the file against this hash (the first 40 hex characters of its sha256); each build also checks it against the registry's full integrity string while the registry names the same version.",
+ "about": "The pin for src/assets/obs/tz-country.json, the estate's one shared time-zone-to-country table (dev@PrompTugal.dinis). Copied by live.b@PrompTugal.dinis on 19 Nov 2026 (1.0.0; 1.1.0 at about 05:15 UTC) from https://promptugal.news/assets/obs/tz-country.json and checked then against the full integrity string in the registry's obs_tz. The validator checks the file against this hash (the first 40 hex characters of its sha256); each build also checks it against the registry's full integrity string while the registry names the same version. When the registry names a newer version, the build ships no table (so no country is sent) and deploys the rest; the next wake upgrades it.",
  "file": "src/assets/obs/tz-country.json",
- "version": "1.0.0",
+ "version": "1.1.0",
  "registry": "https://promptugal.news/api/v1/sites.json",
- "sha256_prefix": "985da86e029b8cc1fe5eef5e575ad989e0d4ba1d"
+ "sha256_prefix": "fc1689705983ac3cca6dda79b05e7899c6ea1f7e"
 }

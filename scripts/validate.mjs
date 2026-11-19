@@ -42,7 +42,8 @@ const mediaSrcs = (s) => ((s.match(/media-src ([^;"]*)/) || [])[1] || '').trim()
 {
   const pin = JSON.parse(readFileSync('scripts/vendor/obs-tz/pin.json', 'utf8'));
   for (const f of [pin.file, '_site/assets/obs/tz-country.json']) {
-    if (!existsSync(f)) { fail(`missing ${f}`); continue; }
+    // the built copy may be left out on purpose when the registry names a newer version (scripts/build.mjs)
+    if (!existsSync(f)) { if (f === pin.file) fail(`missing ${f}`); continue; }
     if (!/^[0-9a-f]{40}$/.test(pin.sha256_prefix || '') || !createHash('sha256').update(readFileSync(f)).digest('hex').startsWith(pin.sha256_prefix)) fail(`${f}: does not match the pinned hash in scripts/vendor/obs-tz/pin.json`);
   }
 }
