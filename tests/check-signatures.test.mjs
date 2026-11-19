@@ -6,7 +6,7 @@
 // global config names another signer: data.b@'s pitfall), and a failing case passes only when the check fails for the
 // expected reason. Prints OK or the failing cases and exits 1.
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdtempSync, writeFileSync, readFileSync, mkdirSync, rmSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, readFileSync, mkdirSync, rmSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
@@ -152,6 +152,30 @@ const setup = (name, keys = keysWith(entry('a', A))) => { const r = repo(name); 
     expect('a _site symlink in the push is refused before the site is moved in', spawnSync('bash', [step], { cwd: r.d, encoding: 'utf8', env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, AFTER: head, REPO: 'x/y', GH_TOKEN: 'none', FAKE_DEPLOYED: full, RUNNER_TEMP: rt } }), false, 'carries a _site path');
     rmSync(join(r.d, '_site'), { force: true }); results.push({ name: 'the step moves the vetted site into _site', pass: rs.status === 0, out: (rs.stdout + rs.stderr).trim() }); }
   expect('an anchor run that did not pass the security job is not used', runStep(full, head, { FAKE_SECURITY_JOBS: '0' }), false, 'no last verified commit');
+  // events.b@'s finding (e774ff9, via conductor.b@ 19 Nov 16:25): rm leaves a pushed .gitattributes in force through the
+  // index; the step reads attributes from the empty tree, needs git 2.42 or later, and checks that git honours it
+  { rmSync(join(r.d, '_site'), { recursive: true, force: true }); rmSync(join(r.d, 'scripts', 'leak-scan.trusted.mjs'), { force: true }); rmSync(join(r.d, 'scripts', 'commit-exemptions.json'), { force: true });
+    const attrHead = r.commit('pushed attributes', { key: A, files: { '.gitattributes': '* -diff\n', 'scripts/commit-exemptions.json': '[]\n' } });
+    const inIndex = spawnSync('git', ['check-attr', 'diff', '--', 'x.txt'], { cwd: r.d, encoding: 'utf8' }).stdout;
+    const ok = runStep(full, attrHead);
+    results.push({ name: 'pushed .gitattributes (also in the index) are turned off, not just deleted', pass: /diff: unset/.test(inIndex) && ok.status === 0, out: inIndex + (ok.stdout + ok.stderr).trim() });
+    // the 16:30 AppSec review: nothing pushed is deleted or replaced before the leak scan, so the scan reads it
+    const kept = ['.gitattributes', 'scripts/commit-exemptions.json'].every((f) => { try { readFileSync(join(r.d, f)); return true; } catch { return false; } });
+    results.push({ name: 'the pushed .gitattributes and exemptions are still on disk for the leak scan', pass: ok.status === 0 && kept, out: (ok.stdout + ok.stderr).trim() });
+    // and the trailer step, after the scan, puts A's exemptions (here none) in place of the pushed ones
+    { const at2 = yml.findIndex((l) => l.startsWith('      - name: Every commit from the last verified commit carries an Agent trailer'));
+      const run2 = []; let in2 = false;
+      for (const l of yml.slice(at2 + 1)) { if (/^      - /.test(l)) break; if (/^        run: \|/.test(l)) { in2 = true; continue; } if (in2) run2.push(l.replace(/^          /, '')); }
+      const st2 = join(tmp, 'trailer-step.sh'); writeFileSync(st2, 'set -e\n' + run2.join('\n') + '\n');
+      writeFileSync(join(rt, 'trusted', 'check-commits.mjs'), "console.log(require('fs').existsSync('scripts/commit-exemptions.json') ? 'pushed exemptions used' : 'no exemptions');\n".replace('require(\'fs\')', "(await import('node:fs'))"));
+      const o2 = spawnSync('bash', [st2], { cwd: r.d, encoding: 'utf8', env: { ...process.env, RUNNER_TEMP: rt, AFTER: attrHead } });
+      results.push({ name: 'the trailer check runs with the anchor\'s exemptions, not the pushed ones', pass: o2.status === 0 && /no exemptions/.test(o2.stdout), out: (o2.stdout + o2.stderr).trim() });
+      r.g('checkout', '-q', '--', 'scripts/commit-exemptions.json'); }
+    const real = execFileSync('sh', ['-c', 'command -v git'], { encoding: 'utf8' }).trim();
+    const fake = (name, body) => { const d = join(tmp, name); mkdirSync(d, { recursive: true }); writeFileSync(join(d, 'git'), `#!/bin/sh\n${body}\nexec ${real} "$@"\n`, { mode: 0o755 }); return `${d}:${bin}:${process.env.PATH}`; };
+    expect('a git older than 2.42 (no GIT_ATTR_SOURCE) is refused', runStep(full, attrHead, { PATH: fake('oldgit', 'if [ "$1" = version ]; then echo "git version 2.41.0"; exit 0; fi') }), false, 'older than 2.42');
+    expect('a git that ignores GIT_ATTR_SOURCE is refused', runStep(full, attrHead, { PATH: fake('deafgit', 'unset GIT_ATTR_SOURCE') }), false, 'still reads attributes');
+  }
   // (1) of ruling 948820a7e: an unsigned commit from a dropped run, between the anchor and the previous head, fails
   expect('(1) an unsigned commit between the anchor and the previous head (a dropped run) fails', spawnSync('node', [r.script, full, head], { cwd: r.d, encoding: 'utf8' }), false, 'not signed by a key'); }
 // security@'s control 9 (ruling 16402a95c): the checks run in a job that runs no pushed code; the build reaches it as data
@@ -175,6 +199,20 @@ const setup = (name, keys = keysWith(entry('a', A))) => { const r = repo(name); 
   const out = spawnSync('bash', [step], { encoding: 'utf8', env: { ...process.env, RUNNER_TEMP: rt, AFTER: 'HEAD', NODE_OPTIONS: `--require ${evil}` } });
   let injected = true; try { readFileSync(marker); } catch { injected = false; }
   results.push({ name: '(9) NODE_OPTIONS set by a pushed step does not reach the trusted check', pass: out.status === 0 && /ran/.test(out.stdout) && !injected, out: (out.stdout + out.stderr).trim() }); }
+// cyber.b@'s finding (4dd8500, via conductor.b@ 19 Nov 16:25): a quoting slip in a run block breaks the run, so every
+// run block of every workflow must parse (bash -n; GitHub expressions are replaced first)
+{ const wdir = join(dirname(fileURLToPath(import.meta.url)), '..', '.github', 'workflows');
+  for (const f of readdirSync(wdir).filter((n) => /\.ya?ml$/.test(n))) {
+    const ls = readFileSync(join(wdir, f), 'utf8').split('\n'); let n = 0;
+    for (let i = 0; i < ls.length; i++) {
+      const m = /^(\s*)(?:- )?run: (\|)?(.*)$/.exec(ls[i]); if (!m) continue;
+      let body;
+      if (m[2]) { const ind = m[1].length; const b = []; for (let j = i + 1; j < ls.length && (ls[j].trim() === '' || ls[j].search(/\S/) > ind); j++) b.push(ls[j]); const pad = Math.min(...b.filter((l) => l.trim()).map((l) => l.search(/\S/))); body = b.map((l) => l.slice(pad)).join('\n'); }
+      else body = m[3];
+      body = body.replace(/\$\{\{[^}]*\}\}/g, 'X'); n++;
+      const sh = join(tmp, `run-${f}-${n}.sh`); writeFileSync(sh, body + '\n');
+      const v = spawnSync('bash', ['-n', sh], { encoding: 'utf8' });
+      results.push({ name: `${f} run block ${n} (line ${i + 1}) parses`, pass: v.status === 0, out: (v.stderr || '').trim() }); } } }
 { const r = setup('older'); expect('the base itself and its ancestors are skipped, not failed', r.check(r.base + '~0', 'HEAD'), true); }
 
 rmSync(tmp, { recursive: true, force: true });

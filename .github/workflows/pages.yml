@@ -78,6 +78,9 @@ jobs:
     env:
       GIT_NO_REPLACE_OBJECTS: '1'
       NODE_OPTIONS: ''
+      # attributes are read from the empty tree, so no .gitattributes in the push (working tree or index) steers git's
+      # diff or log; rm alone leaves the index copy in force (events.b@'s finding e774ff9, via conductor.b@, 19 Nov 16:25)
+      GIT_ATTR_SOURCE: 4b825dc642cb6eb9a060e54bf8d69288fbee4904
     steps:
       - uses: actions/checkout@v4
         with:
@@ -103,15 +106,18 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
         run: |
-          unset NODE_OPTIONS; export GIT_NO_REPLACE_OBJECTS=1
+          unset NODE_OPTIONS; export GIT_NO_REPLACE_OBJECTS=1; export GIT_ATTR_SOURCE=4b825dc642cb6eb9a060e54bf8d69288fbee4904
           # the pushed tree must not track _site, and the downloaded site holds plain files and directories only; both are
           # checked before any trusted file exists (events.b@; the 16:08 AppSec review)
           if [ -n "$(git ls-files -- _site)" ] || [ -L _site ] || [ -e _site ]; then echo "the push carries a _site path: not deploying" >&2; exit 1; fi
           DL="$RUNNER_TEMP/site-download"
           if [ ! -d "$DL" ] || [ -L "$DL" ] || [ -n "$(find "$DL" ! -type f ! -type d -print -quit)" ]; then echo "the built site is missing or holds a symlink or special file: not deploying" >&2; exit 1; fi
           mv "$DL" _site
-          # attributes steer git's diff and log: every .gitattributes in the push is removed; the root one comes from A below
-          git ls-files -z -- ':(glob)**/.gitattributes' '.gitattributes' | xargs -0 -r rm -f --
+          # GIT_ATTR_SOURCE needs git 2.42 or later; an older git would read the pushed attributes, so it stops the run
+          GV=$(git version | sed -nE 's/^git version ([0-9]+\.[0-9]+).*/\1/p')
+          if [ -z "$GV" ] || [ "$(printf '2.42\n%s\n' "$GV" | sort -V | head -n1)" != "2.42" ]; then echo "git ${GV:-unknown} is older than 2.42: pushed attributes cannot be turned off, not deploying" >&2; exit 1; fi
+          # and it must hold here: no tracked file has any attribute set
+          if [ -n "$(git ls-files -z | git check-attr --stdin -z -a 2>/dev/null | head -c 1)" ]; then echo "git still reads attributes from the push: not deploying" >&2; exit 1; fi
           if [ "$(git rev-parse --is-shallow-repository)" != "false" ]; then echo "shallow checkout: the checks need the whole history" >&2; exit 1; fi
           # A: the head commit of the latest successful push run of this workflow on dev. Only GitHub Actions creates runs;
           # a deployment can be made by anyone with write access (security@'s ruling 0ba439611, civic.b@'s finding).
@@ -131,28 +137,33 @@ jobs:
           for p in scripts scripts/commit-exemptions.json scripts/leak-scan.trusted.mjs _site; do if [ -L "$p" ]; then echo "$p is a symlink: not deploying" >&2; exit 1; fi; done
           if [ -e scripts ] && [ ! -d scripts ]; then echo "scripts is not a directory: not deploying" >&2; exit 1; fi
           mkdir -p scripts
-          # every config that steers git or the checks comes from A, or is removed (signals.b@'s finding)
-          for c in .gitattributes .gitignore; do if [ -L "$c" ]; then echo "$c is a symlink: not deploying" >&2; exit 1; fi; if git cat-file -e "$A:$c" 2>/dev/null; then git show "$A:$c" > "$c"; else rm -f "$c"; fi; done
-          # the trailer check's config: A's exemptions, or none
-          if git cat-file -e "$A:scripts/commit-exemptions.json" 2>/dev/null; then git show "$A:scripts/commit-exemptions.json" > scripts/commit-exemptions.json; else rm -f scripts/commit-exemptions.json; fi
+          # no pushed file is deleted or replaced before the leak scan, so the scan reads every pushed file (the 16:30 AppSec
+          # review): attributes are off altogether (above); a pushed .gitignore can only hide untracked files, and the only
+          # untracked paths here are the built site (walked by the scan itself) and the trusted copy below
+          for c in .gitattributes .gitignore; do if [ -L "$c" ]; then echo "$c is a symlink: not deploying" >&2; exit 1; fi; done
+          # the trailer check's config, A's exemptions or none, is kept aside and put in place after the leak scan
+          if git cat-file -e "$A:scripts/commit-exemptions.json" 2>/dev/null; then git show "$A:scripts/commit-exemptions.json" > "$RUNNER_TEMP/trusted/commit-exemptions.json"; fi
           # the leak scan finds the repository from its own path, so its trusted copy sits in scripts/ for the run only
           cp "$RUNNER_TEMP/trusted/leak-scan.mjs" scripts/leak-scan.trusted.mjs
+      - name: Leak scan (tracked files as pushed, and the built site; the trusted copy)
+        run: |
+          unset NODE_OPTIONS; export GIT_NO_REPLACE_OBJECTS=1; export GIT_ATTR_SOURCE=4b825dc642cb6eb9a060e54bf8d69288fbee4904; NODE_BIN="$(command -v node)"; case "$NODE_BIN" in /*) ;; *) exit 1 ;; esac
+          "$NODE_BIN" scripts/leak-scan.trusted.mjs
       - name: Every commit from the last verified commit carries an Agent trailer (the trusted check)
         env:
           AFTER: ${{ github.sha }}
         run: |
-          unset NODE_OPTIONS; export GIT_NO_REPLACE_OBJECTS=1; NODE_BIN="$(command -v node)"; case "$NODE_BIN" in /*) ;; *) exit 1 ;; esac
+          unset NODE_OPTIONS; export GIT_NO_REPLACE_OBJECTS=1; export GIT_ATTR_SOURCE=4b825dc642cb6eb9a060e54bf8d69288fbee4904; NODE_BIN="$(command -v node)"; case "$NODE_BIN" in /*) ;; *) exit 1 ;; esac
+          # after the leak scan, the pushed exemptions give way to A's, or to none
+          if [ -L scripts/commit-exemptions.json ]; then echo "scripts/commit-exemptions.json is a symlink: not deploying" >&2; exit 1; fi
+          if [ -f "$RUNNER_TEMP/trusted/commit-exemptions.json" ]; then cp "$RUNNER_TEMP/trusted/commit-exemptions.json" scripts/commit-exemptions.json; else rm -f scripts/commit-exemptions.json; fi
           "$NODE_BIN" "$RUNNER_TEMP/trusted/check-commits.mjs" "$(cat "$RUNNER_TEMP/trusted/anchor")" "$AFTER"
       - name: Signed commits (every commit after the pinned base; the trusted check)
         env:
           AFTER: ${{ github.sha }}
         run: |
-          unset NODE_OPTIONS; export GIT_NO_REPLACE_OBJECTS=1; NODE_BIN="$(command -v node)"; case "$NODE_BIN" in /*) ;; *) exit 1 ;; esac
+          unset NODE_OPTIONS; export GIT_NO_REPLACE_OBJECTS=1; export GIT_ATTR_SOURCE=4b825dc642cb6eb9a060e54bf8d69288fbee4904; NODE_BIN="$(command -v node)"; case "$NODE_BIN" in /*) ;; *) exit 1 ;; esac
           "$NODE_BIN" "$RUNNER_TEMP/trusted/check-signatures.mjs" "" "$AFTER"
-      - name: Leak scan (tracked files and the built site; the trusted copy)
-        run: |
-          unset NODE_OPTIONS; export GIT_NO_REPLACE_OBJECTS=1; NODE_BIN="$(command -v node)"; case "$NODE_BIN" in /*) ;; *) exit 1 ;; esac
-          "$NODE_BIN" scripts/leak-scan.trusted.mjs
       # the deployed bytes are the scanned bytes: the Pages artifact is made here, from the site this job scanned (library.b@)
       - if: needs.build.outputs.deploy == 'true'
         uses: actions/upload-pages-artifact@v3
