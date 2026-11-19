@@ -55,6 +55,20 @@ jobs:
         run: |
           last=$(git describe --tags --abbrev=0 --match "v${VERSION_BASE}.*" "$AFTER" 2>/dev/null || true)
           node scripts/check-commits.mjs "${last:-$BEFORE}" "$AFTER"
+      - name: Signed commits (every commit after the pinned base, by the check as the previous head of dev had it)
+        env:
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.sha }}
+        run: |
+          # The whole history after BASE is checked on every push, so no tag a pusher makes and no dropped run can narrow it;
+          # the checker is the one in the previous head of dev (github.event.before), so a push cannot weaken the check that
+          # judges it. The one exception is the push whose previous head is BASE itself: it adds the check (the reviews, 19 Nov).
+          BASE=6a259197f52db7e78eb0d0d6eb035ac478b23d1e
+          if git cat-file -e "$BEFORE:scripts/check-signatures.mjs" 2>/dev/null; then git show "$BEFORE:scripts/check-signatures.mjs" > "$RUNNER_TEMP/check-signatures.mjs"
+          elif [ "$BEFORE" = "$BASE" ]; then cp scripts/check-signatures.mjs "$RUNNER_TEMP/check-signatures.mjs"
+          else echo "the previous head of dev holds no signature check: not deploying" >&2; exit 1; fi
+          node tests/check-signatures.test.mjs
+          node "$RUNNER_TEMP/check-signatures.mjs" "" "$AFTER"
       - run: node scripts/build.mjs
         env:
           SITE_VERSION: ${{ steps.version.outputs.version }}

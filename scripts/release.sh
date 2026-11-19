@@ -13,6 +13,9 @@ node tests/generate.test.mjs
 node tests/leak-scan.test.mjs
 node scripts/leak-scan.mjs
 node scripts/check-commits.mjs origin/dev HEAD
+# Signed commits (Dinis, 19 Nov 2026): every commit after the pinned base signed with a key in its parent's team/keys.json.
+node tests/check-signatures.test.mjs >/dev/null
+node scripts/check-signatures.mjs '' HEAD
 for i in 1 2 3 4 5; do
   git fetch -q origin dev
   git rebase -q origin/dev
@@ -21,6 +24,7 @@ for i in 1 2 3 4 5; do
   node scripts/validate.mjs >/dev/null
   node scripts/leak-scan.mjs >/dev/null
   node scripts/check-commits.mjs origin/dev HEAD >/dev/null
+  node scripts/check-signatures.mjs origin/dev HEAD >/dev/null   # after the rebase origin/dev is an ancestor
   if git -c push.negotiate=true push -q origin HEAD:dev; then echo "released $(git rev-parse --short HEAD) to dev"; exit 0; fi
   sleep $((i * 3))
 done
