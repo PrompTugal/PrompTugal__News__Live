@@ -89,6 +89,16 @@
   function old(s, hours) { var t = Date.parse(s); return !isFinite(t) || Date.now() - t > hours * 3600000; }
   function getJson(url) { return fetch(url, { credentials: 'omit', referrerPolicy: 'no-referrer', redirect: 'error', cache: 'no-cache' }).then(function (r) { return r.ok ? r.json() : null; }); }
   var BOUNDS = { temp_c: [-30, 55], wind_kmh: [0, 300], humidity_pct: [0, 100], rain_mm: [0, 500], t_min_c: [-30, 55], t_max_c: [-30, 55], rain_prob_pct: [0, 100] };
+  // A file's licence beside its figures: the name as text, the link only if it is https with no user info.
+  function lic(l) {
+    if (!l || typeof l !== 'object' || typeof l.name !== 'string' || typeof l.url !== 'string') return null;
+    var u; try { u = new URL(l.url); } catch (e) { return null; }
+    // the same rule as the build: https, no user info or port, and a known licence host only
+    if (u.protocol !== 'https:' || u.username || u.password || u.port || l.url.length > 2000 || ['creativecommons.org', 'opendatacommons.org', 'www.ipma.pt', 'api.ipma.pt', 'www.nationalarchives.gov.uk', 'tfl.gov.uk', 'promptugal.news', 'data.promptugal.news'].indexOf(u.hostname) < 0) return null;
+    var name = l.name.replace(/[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u202a-\u202e\u2066-\u2069]/g, ' ').trim().slice(0, 60);
+    return name ? { name: name, url: u.href } : null;
+  }
+  function link(l) { var a = document.createElement('a'); a.href = l.url; a.rel = 'noopener noreferrer nofollow'; a.target = '_blank'; a.textContent = l.name; return a; }
   function inb(k, v) { return typeof v === 'number' && isFinite(v) && v >= BOUNDS[k][0] && v <= BOUNDS[k][1]; }
   function weather() {
     Array.prototype.forEach.call(document.querySelectorAll('.wx[data-wx]'), function (box) {
@@ -107,6 +117,12 @@
         var state = box.querySelector('.wx-state');
         if (state) state.textContent = old(r.at, 2) ? 'stale: the latest file holds no reading from the last two hours' : 'the latest file, read when this page opened';
         box.setAttribute('data-read', r.at);
+        try { // last, and on its own: a licence line must never stop the figures
+          var ll = box.querySelector('.wx-lic'), own = lic(d.license), ip = d.license && d.license.sources ? lic(d.license.sources.ipma) : null;
+          if (ll) { while (ll.firstChild) ll.removeChild(ll.firstChild);
+            if (own) { ll.append('This file: ', link(own), " (PrompTugal.news's record); IPMA's values under "); } else { ll.append('The file read gives no licence we can link; IPMA\'s values under '); }
+            ll.append(ip ? link({ name: "IPMA's terms", url: ip.url }) : link({ name: "IPMA's terms", url: 'https://api.ipma.pt/' })); }
+        } catch (e) {}
       }).catch(function () {});
     });
   }
@@ -135,6 +151,12 @@
         var when = n.querySelector('.muted');
         if (when && typeof c.status.checked_at === 'string' && ISO.test(c.status.checked_at)) when.textContent = utc(c.status.checked_at) + (old(c.status.checked_at, 3) ? ' (stale)' : ' (latest)');
       });
+      try { // last, and on its own
+        var rl = document.getElementById('reg-lic'), rlic = lic(d.license);
+        if (rl) { while (rl.firstChild) rl.removeChild(rl.firstChild);
+          if (rlic) rl.append('The register: ', link(rlic), ", PrompTugal.news's record; each camera under its operator's terms");
+          else rl.append("The register read gives no licence we can link; each camera under its operator's terms"); }
+      } catch (e) {}
     })
     .catch(function () {});
   }

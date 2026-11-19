@@ -148,8 +148,20 @@ function weatherOf(now) {
     temp_c: n(r.temp_c), humidity_pct: n(r.humidity_pct), wind_kmh: n(r.wind_kmh), rain_mm: n(r.rain_mm),
     t_min_c: n(fc.t_min_c), t_max_c: n(fc.t_max_c), rain_prob_pct: n(fc.rain_prob_pct),
     source: safeUrl(st.source), page: safeUrl(st.page),
+    lic: licOf(now.license), ipma_lic: licOf(now.license && typeof now.license === 'object' && now.license.sources && typeof now.license.sources === 'object' ? now.license.sources.ipma : null),
   };
 }
+// A file's own licence block, checked: a short name and an https link, or nothing (security@'s low point: show each
+// loaded file's licence beside its figures).
+// Licence links only to known licence hosts (the AppSec post-review, 19 Nov 2026: a free-text name over any link could
+// mislead); live.js keeps the same list.
+const LICENCE_HOSTS = new Set(['creativecommons.org', 'opendatacommons.org', 'www.ipma.pt', 'api.ipma.pt', 'www.nationalarchives.gov.uk', 'tfl.gov.uk', 'promptugal.news', 'data.promptugal.news']);
+function licOf(l) {
+  if (!l || typeof l !== 'object' || Array.isArray(l)) return null;
+  const name = clean(l.name, 60), url = safeUrl(l.url);
+  return name && url && !url.startsWith('/') && LICENCE_HOSTS.has(new URL(url).hostname) ? { name, url } : null;
+}
+const licLine = (lic, ipma) => `${lic ? `This file: ${a(lic.url, lic.name)} (PrompTugal.news's record)` : `The file read gives no licence we can link; we publish our record under ${a('https://creativecommons.org/licenses/by/4.0/', 'CC BY 4.0')}`}; IPMA's values under ${a(ipma ? ipma.url : IPMA_LICENSE.url, "IPMA's terms")}`;
 // The weather block: the build writes the last known figures (the fallback); live.js replaces them in the browser with
 // data.promptugal.news's latest file for the place when it passes its checks (data in the browser, Dinis, 19 Nov 2026).
 function weatherHtml(w, placeId, placeName) {
@@ -164,7 +176,7 @@ function weatherHtml(w, placeId, placeName) {
 <tr><td>Rain, last hour</td><td><span data-k="rain_mm">${v(has ? w.rain_mm : null)}</span> mm</td></tr>
 <tr><td>Today</td><td><span data-k="t_min_c">${v(has ? w.t_min_c : null)}</span> °C to <span data-k="t_max_c">${v(has ? w.t_max_c : null)}</span> °C, rain <span data-k="rain_prob_pct">${v(has ? w.rain_prob_pct : null)}</span> % likely</td></tr>
 </tbody></table>
-<p class="src">Source: IPMA station <span data-k="station">${esc(has ? w.station : 'not known')}</span>, <span class="wx-when">${has && w.at ? `reading of ${fmtTime(w.at)}` : 'no reading at build time'}</span> (<span class="wx-state">the copy built with this page</span>), as collected by <a href="${esc(from)}">data.promptugal.news</a> (${a(IPMA_LICENSE.url, "IPMA's terms")}). The weather is for the place, not the camera's exact spot. Not a warning service: follow ${a('https://www.ipma.pt/', 'IPMA')}.</p>
+<p class="src">Source: IPMA station <span data-k="station">${esc(has ? w.station : 'not known')}</span>, <span class="wx-when">${has && w.at ? `reading of ${fmtTime(w.at)}` : 'no reading at build time'}</span> (<span class="wx-state">the copy built with this page</span>), as collected by <a href="${esc(from)}">data.promptugal.news</a>. <span class="wx-lic">${licLine(has ? w.lic : null, has ? w.ipma_lic : null)}</span>. The weather is for the place, not the camera's exact spot. Not a warning service: follow ${a('https://www.ipma.pt/', 'IPMA')}.</p>
 </div>`;
 }
 
@@ -294,6 +306,7 @@ export async function generate(outDir = '_site', opts = {}) {
     STATE.register = `read (${cameras.length} cameras kept, ${STATE.skipped.length} skipped)`;
     STATE.register_written = typeof reg.data?.read_at === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?Z$/.test(reg.data.read_at) ? reg.data.read_at : '';
     STATE.register_status = 200;
+    STATE.register_license = licOf(reg.data?.license);
   } else {
     STATE.register = `not available (${reg.why})`;
     STATE.register_status = reg.status ?? null;
@@ -383,7 +396,7 @@ ${maps}
 ${watchable.length ? (rest.length ? camTable(rest, placeName) : '') : noWatchable()}
 ${london.length ? `<details class="pending"><summary>Beyond Portugal: London, ${london.length} cameras</summary>${camTable(london, placeName)}</details>` : ''}
 ${linkOnly.length ? `<details class="pending"><summary>${linkOnly.length} more cameras are registered but cannot be shown here yet</summary><p>Their operators have not yet offered an embed we may use, so we do not show them on the map. We are asking them. Until then, each links to the operator's own page.</p>${camTable(linkOnly, placeName)}</details>` : ''}
-<p class="muted">Up or down: <span id="reg-state" data-read="${esc(STATE.register_written || '')}">as at this page's build, from the register written at ${fmtTime(STATE.register_written || '')}</span>. Your browser reads <a href="${REGISTER}">data.promptugal.news's register</a> when the page opens and every five minutes; a check older than three hours is marked stale. <a href="/api/v1/cameras.json">The data</a> (CC BY 4.0; each camera under its operator's terms).</p>` }));
+<p class="muted">Up or down: <span id="reg-state" data-read="${esc(STATE.register_written || '')}">as at this page's build, from the register written at ${fmtTime(STATE.register_written || '')}</span>. <span id="reg-lic">${STATE.register_license ? `The register: ${a(STATE.register_license.url, STATE.register_license.name)}, PrompTugal.news's record` : `The register gives no licence we can link; we publish our record under ${a('https://creativecommons.org/licenses/by/4.0/', 'CC BY 4.0')}`}; each camera under its operator's terms</span>. Your browser reads <a href="${REGISTER}">data.promptugal.news's register</a> when the page opens and every five minutes; a check older than three hours is marked stale. <a href="/api/v1/cameras.json">The data</a> (CC BY 4.0; each camera under its operator's terms).</p>` }));
 
   write('places/index.html', page({ path: '/places/', current: '/places/', title: 'Places: PrompTugal.news Live', description: 'The places PrompTugal.news Live covers, each with its cameras and the weather there.',
     body: `<h1>Places</h1><ul class="places">${places.map((p) => `<li><a href="/places/${p.id}/">${esc(p.name)}</a> <span class="muted">${camsIn(p.id).length} camera${camsIn(p.id).length === 1 ? '' : 's'}</span></li>`).join('')}</ul>` }));
