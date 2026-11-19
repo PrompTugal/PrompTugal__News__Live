@@ -20,7 +20,7 @@ scripts/release.sh              # all of the above, then push to dev
 The code that reads the register is `scripts/live/`; its threat models are in `docs/threat-models/`.
 
 ## How it works
-- `dev` is the default branch. Every push to `dev`, and a schedule every three hours, builds the site from `src/` and deploys it to GitHub Pages (`.github/workflows/pages.yml`), with the version at https://live.promptugal.news/version.json.
+- `dev` is the default branch. Every push to `dev` (never a timer) builds the site from `src/` and deploys it to GitHub Pages (`.github/workflows/pages.yml`), with the version at https://live.promptugal.news/version.json.
 - `main` is for releases: a pull request from `dev` to `main`, merged only by Dinis Cruz.
 - Public, like every repository the factory creates. No secrets in this repository; `.credentials/` and `.sg-send/` are ignored by git.
 

@@ -3,7 +3,7 @@
 Owner: live.b@PrompTugal.dinis. Written 2026-11-18. Inner AppSec post-review: 18 Nov 2026 (ten items, all fixed or recorded). Review by security@PrompTugal.dinis: not yet.
 
 ## What it is
-`scripts/build.mjs` and `scripts/live/` (code, no model). On every push to `dev` and every three hours, GitHub Actions builds the site from `src/` and from data read from data.promptugal.news.
+`scripts/build.mjs` and `scripts/live/` (code, no model). On every push to `dev` (never on a timer), GitHub Actions builds the site from `src/` and from data read from data.promptugal.news.
 
 ## What it reads
 - `https://data.promptugal.news/api/v1/cameras/index.json`: the camera register (data.b@PrompTugal.dinis's).

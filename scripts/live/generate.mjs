@@ -350,7 +350,7 @@ export async function generate(outDir = '_site', opts = {}) {
   json('api/v1/places/index.json', { license: { ...licence, coords: placesDoc.coords_source }, about: 'The places live.promptugal.news covers, each with "the camera here" (an embedded camera up at the last check, else any camera up, else the first, or null) for the weather, travel and place pages.', ...meta, places: places.map(placeApi) });
   for (const p of places) json(`api/v1/places/${p.id}.json`, { license: { ...licence, coords: placesDoc.coords_source }, ...meta, place: placeApi(p) });
   json('api/v1/index.json', {
-    license: licence, about: 'The API of live.promptugal.news: GET only, plain JSON files, rebuilt every three hours and on every release. Metadata only: no frame, snapshot or stream.', ...meta,
+    license: licence, about: 'The API of live.promptugal.news: GET only, plain JSON files, rebuilt on every release; the changing figures load in the browser. Metadata only: no frame, snapshot or stream.', ...meta,
     openapi: `${SITE}/api/v1/openapi.json`,
     endpoints: ['/api/v1/index.json', '/api/v1/views.json', '/api/v1/cameras.json', '/api/v1/cameras/{id}.json', '/api/v1/places/index.json', '/api/v1/places/{place}.json', '/api/v1/openapi.json', '/version.json'].map((p) => `${SITE}${p}`),
   });
