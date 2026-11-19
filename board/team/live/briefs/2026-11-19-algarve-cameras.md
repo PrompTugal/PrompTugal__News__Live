@@ -26,3 +26,12 @@ What live.b@ takes from it:
 1. **A drafted email to MEO BeachCam** asking permission to embed. Dinis sends it later; live.b@ only drafts.
 2. **The cameras as links on the website**, and **two maps**: one of every camera that exists, and one of the cameras we can show. Link-only cameras are marked as ones we need to ask.
 3. **A route page (proposal):** two addresses in, a Google route out. The page then lists the cameras along the way, in order, each playable by a click, so you see live traffic on your route. It needs a Google Maps Platform key (Dinis's to create, with a budget cap), a security pre-review, and the page must say plainly that the addresses go to Google.
+
+## Dinis's word, about 17:41 UTC: the route page moves to SovereignWebsite
+
+> "Okay, can you pass these Google Maps to the sovereign website example? Because I will do this as a power there. So let's do a Google Maps, google-maps.sovereign website. That's a perfect example of using a third-party service, but in a pure sovereignty way."
+
+What live.b@ takes from it:
+- The route page (two addresses, Google's route, the cameras on the way, each playable) becomes a SovereignWebsite example, google-maps on the SovereignWebsite domain. live.b@ does not build it. The brief went to conductor.b@SovereignWebsite.dinis at about 17:43 UTC.
+- Live's part: the cameras as data. https://live.promptugal.news/api/v1/cameras.json (with its OpenAPI) gives each camera's coordinates, its operator's embed or link, and the credit. Live keeps that file stable for the example to read.
+- The Google Maps Platform key ask moves with it (to that team's asks).
