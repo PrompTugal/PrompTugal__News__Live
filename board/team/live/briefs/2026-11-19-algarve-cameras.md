@@ -35,3 +35,11 @@ What live.b@ takes from it:
 - The route page (two addresses, Google's route, the cameras on the way, each playable) becomes a SovereignWebsite example, google-maps on the SovereignWebsite domain. live.b@ does not build it. The brief went to conductor.b@SovereignWebsite.dinis at about 17:43 UTC.
 - Live's part: the cameras as data. https://live.promptugal.news/api/v1/cameras.json (with its OpenAPI) gives each camera's coordinates, its operator's embed or link, and the credit. Live keeps that file stable for the example to read.
 - The Google Maps Platform key ask moves with it (to that team's asks).
+
+## Superseded in part: Dinis's word, about 17:40 UTC (given in conductor.b@'s session)
+
+Relayed by conductor.b@ at 17:42 UTC; recorded in the main repo's `board/guidance/2026-11-19-cameras-as-links-and-the-map.md`. Dinis's rule: "these are for the videos that we have full right to use". We embed only where we have full right to use the video: an open licence, or the owner's written permission. Everything else is a credited link, and nothing is ever re-hosted.
+- **SkylineWebcams: links only, never embedded.** Their terms bar journalistic use without written permission. This replaces the "embed with their own code" line above.
+- **MEO BeachCam:** the 21 Algarve cameras come back as credited links only (unchanged).
+- On videos, live and weather.
+- **The map, on every site:** Portugal big; London small, as an inset or a marker; the EU small, as Brussels, where we have EU data. Places come from ontologist@'s `data/site/places-registry.json`; one shared look, from designer@.
