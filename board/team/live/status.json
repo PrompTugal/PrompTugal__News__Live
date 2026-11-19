@@ -97,7 +97,7 @@
    "Camera uptime: time-weighted from data.promptugal.news's status changes (Portuguese cameras); the 889 JamCams have no status history yet."
   ],
   "plan": [
-   "1. On each place page and camera page, load data.promptugal.news's /api/v1/history/weather/<place>.json in the browser: the last 7 days observed (low, high, rain) beside the forecast shown 1 day before, with gaps shown as gaps and the first day of the record stated; designer@'s one way of drawing 'what we said / what happened' once it exists, a plain table until then.",
+   "1. On each place page and camera page, load data.promptugal.news's /api/v1/history/weather/<place>.json in the browser: the last 7 days observed (low, high, rain) beside the forecast shown 1 day before, with gaps shown as gaps and the first day of the record stated; drawn to designer@'s spec (main repo board/spec-past-and-forecast.md, PF1 to PF9, set 01:31 UTC 19 Nov: observed solid, forecast hatched, today a sand column, gaps dashed, 'Record begins <day>', the forecast shown beside what was measured with the difference in plain units, a track-record line), from design/past-and-forecast/mock.mjs.",
    "2. Ask data.b@ for a status history for every camera (one file per place, changes only), so uptime over time covers London too.",
    "3. Link each weather block to weather.promptugal.news's place page and its accuracy record."
   ]
