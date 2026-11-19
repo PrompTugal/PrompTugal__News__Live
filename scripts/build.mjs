@@ -29,8 +29,13 @@ function checkPiece(name, pin, files) {
     if (entry.version !== v) { const off = `${name} ${v} off: the registry names ${tidy(entry.version)}`; console.log(`${off} (left out, never shipped unchecked; the next wake upgrades it)`); return off; }
     console.error(`${name}: the registry names ${v} but gives no pin for it: not deploying`); process.exit(1);
   }
+  // Two registry shapes are read (conductor.b@, 19 Nov 07:19; dev@ moves both to versions[v].integrity.<file>):
+  // today's versions[v].<key> (bar) or versions[v].integrity (obs_tz), and the coming versions[v].integrity.<key or file>.
+  const own = (o, k) => o && typeof o === 'object' && Object.prototype.hasOwnProperty.call(o, k) && typeof o[k] === 'string' ? o[k] : '';
+  const pinOf = (file, key) => own(want, key) || own(want.integrity, key) || own(want.integrity, file.split('/').pop());
   for (const [file, key] of Object.entries(files)) {
-    if (typeof want[key] !== 'string' || SRI(file) !== want[key]) { console.error(`${name}: ${file} does not match the registry's pin for ${v}: not deploying`); process.exit(1); }
+    const p = pinOf(file, key);
+    if (!p || SRI(file) !== p) { console.error(`${name}: ${file} does not match the registry's pin for ${v}: not deploying`); process.exit(1); }
   }
   console.log(`${name}: ${v} matches the registry's pins${entry.version !== v ? ` (the registry names ${tidy(entry.version)}: upgrade at the next wake)` : ''}`);
   return '';

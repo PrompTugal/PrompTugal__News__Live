@@ -15,9 +15,9 @@ a:focus-visible { outline: 3px solid var(--red); outline-offset: 2px; }
 .brand { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; color: var(--ink); }
 .brand img { height: 33px; width: auto; max-width: 62vw; }
 .brand-data { font: 600 1rem var(--font-meta, monospace); color: var(--red); }
-nav { display: flex; flex-wrap: wrap; gap: 4px 16px; }
-nav a { color: var(--ink); text-decoration: none; padding: 4px 0; border-bottom: 2px solid transparent; }
-nav a:hover, nav a[aria-current] { border-bottom-color: var(--red); }
+nav:not(.ptsb) { display: flex; flex-wrap: wrap; gap: 4px 16px; }
+nav:not(.ptsb) a { color: var(--ink); text-decoration: none; padding: 4px 0; border-bottom: 2px solid transparent; }
+nav:not(.ptsb) a:hover, nav:not(.ptsb) a[aria-current] { border-bottom-color: var(--red); }
 .mast-meta { display: flex; flex-wrap: wrap; gap: 4px 16px; margin-top: 8px; font: .8rem var(--font-meta, monospace); color: var(--muted); }
 .mast-meta a { color: var(--link); font-weight: 600; }
 main { padding: 8px 16px 32px; }

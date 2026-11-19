@@ -38,6 +38,12 @@ const frameHosts = (s) => ((s.match(/frame-src ([^;"]*)/) || [])[1] || '').trim(
 // media-src tokens as host+path, e.g. s3-eu-west-1.amazonaws.com/jamcams.tfl.gov.uk/
 const mediaSrcs = (s) => ((s.match(/media-src ([^;"]*)/) || [])[1] || '').trim().split(/\s+/).filter((t) => t.startsWith('https://')).map((t) => t.slice(8));
 // live.b@PrompTugal.dinis, 2026-11-18: the AppSec checks from the security pre-review of the first version.
+// Our own CSS never styles a bare nav: it would also match the sites bar's nav.ptsb and widen the phone row past the
+// screen (data.b@, via conductor.b@, 19 Nov 2026). Scope it with nav:not(.ptsb) or a class.
+for (const f of files.filter((x) => x.endsWith('.css') && !x.split(sep).join('/').includes('/assets/sites-bar/'))) {
+  const css = readFileSync(f, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+  if (/(^|[\s,{}>+~(])nav(?![-\w:.#\[])/m.test(css)) fail(`${f}: a bare nav selector also styles the sites bar; use nav:not(.ptsb)`);
+}
 // The shared time-zone-to-country table, as pinned (dev@'s obs_tz in promptugal.news/api/v1/sites.json).
 {
   const pin = JSON.parse(readFileSync('scripts/vendor/obs-tz/pin.json', 'utf8'));
