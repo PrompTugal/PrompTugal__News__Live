@@ -45,31 +45,39 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Every commit since the last release carries an Agent trailer
-        # From the last release tag, not github.event.before: GitHub drops a pending run when a
-        # newer one queues, and the surviving run's "before" is the dropped push's head, so the
+      # Every security check below runs as the previous head of dev (github.event.before) had it, with that head's config,
+      # never the pushed copy; if that head lacks any of them, the run fails (security@'s control 7, widened, 19 Nov 2026:
+      # fae9649db). The functional build may use the pushed tree.
+      - name: Take the security checks from the previous head of dev
+        env:
+          BEFORE: ${{ github.event.before }}
+        run: |
+          if [ "$(git rev-parse --is-shallow-repository)" != "false" ]; then echo "shallow checkout: the checks need the whole history" >&2; exit 1; fi
+          if ! git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then echo "no previous head of dev to take the checks from: not deploying" >&2; exit 1; fi
+          mkdir -p "$RUNNER_TEMP/trusted"
+          for f in check-signatures.mjs check-commits.mjs leak-scan.mjs; do
+            git show "$BEFORE:scripts/$f" > "$RUNNER_TEMP/trusted/$f" 2>/dev/null || { echo "the previous head of dev has no scripts/$f: not deploying" >&2; exit 1; }
+          done
+          # the trailer check's config: the previous head's exemptions, or none
+          if git cat-file -e "$BEFORE:scripts/commit-exemptions.json" 2>/dev/null; then git show "$BEFORE:scripts/commit-exemptions.json" > scripts/commit-exemptions.json; else rm -f scripts/commit-exemptions.json; fi
+          # the leak scan finds the repository from its own path, so its trusted copy sits in scripts/ for the run only
+          cp "$RUNNER_TEMP/trusted/leak-scan.mjs" scripts/leak-scan.trusted.mjs
+      - name: Every commit since the last release carries an Agent trailer (the trusted check)
+        # Range: from the last release tag (or the push's base if none) to the new head. The tag, not github.event.before:
+        # a newer push cancels a queued run (concurrency), and the surviving run's "before" is the dropped push's head, so the
         # dropped push's commits were never checked (specialist.code@ finding 3b).
         env:
           BEFORE: ${{ github.event.before }}
           AFTER: ${{ github.sha }}
         run: |
           last=$(git describe --tags --abbrev=0 --match "v${VERSION_BASE}.*" "$AFTER" 2>/dev/null || true)
-          node scripts/check-commits.mjs "${last:-$BEFORE}" "$AFTER"
-      - name: Signed commits (every commit after the pinned base, by the check as the previous head of dev had it)
+          node "$RUNNER_TEMP/trusted/check-commits.mjs" "${last:-$BEFORE}" "$AFTER"
+      - name: Signed commits (every commit after the pinned base, the trusted check)
         env:
-          BEFORE: ${{ github.event.before }}
           AFTER: ${{ github.sha }}
         run: |
-          # The whole history after BASE is checked on every push, so no tag a pusher makes and no dropped run can narrow it;
-          # the checker is the one in the previous head of dev (github.event.before), so a push cannot weaken the check that
-          # judges it. The one exception is the push whose previous head is BASE itself: it adds the check (the reviews, 19 Nov).
-          BASE=6a259197f52db7e78eb0d0d6eb035ac478b23d1e
-          if [ "$(git rev-parse --is-shallow-repository)" != "false" ]; then echo "shallow checkout: the signature check needs the whole history" >&2; exit 1; fi
-          if git cat-file -e "$BEFORE:scripts/check-signatures.mjs" 2>/dev/null; then git show "$BEFORE:scripts/check-signatures.mjs" > "$RUNNER_TEMP/check-signatures.mjs"
-          elif [ "$BEFORE" = "$BASE" ]; then cp scripts/check-signatures.mjs "$RUNNER_TEMP/check-signatures.mjs"
-          else echo "the previous head of dev holds no signature check: not deploying" >&2; exit 1; fi
           node tests/check-signatures.test.mjs
-          node "$RUNNER_TEMP/check-signatures.mjs" "" "$AFTER"
+          node "$RUNNER_TEMP/trusted/check-signatures.mjs" "" "$AFTER"
       - run: node scripts/build.mjs
         env:
           SITE_VERSION: ${{ steps.version.outputs.version }}
@@ -78,8 +86,8 @@ jobs:
         run: node tests/generate.test.mjs
       - name: The leak scan's key rules (security@'s ruling, 19 Nov 2026)
         run: node tests/leak-scan.test.mjs
-      - name: Leak scan (tracked files and the built site)
-        run: node scripts/leak-scan.mjs
+      - name: Leak scan (tracked files and the built site; the trusted copy)
+        run: node scripts/leak-scan.trusted.mjs
       - if: steps.mode.outputs.deploy == 'true'
         uses: actions/configure-pages@v5
       - if: steps.mode.outputs.deploy == 'true'

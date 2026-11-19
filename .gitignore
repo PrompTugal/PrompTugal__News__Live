@@ -229,3 +229,6 @@ _site/
 # local credentials and SG/Send state: never committed (Dinis, 2026-11-17)
 .credentials/
 .sg-send/
+
+# written by CI for its run only: the leak scan as the previous head of dev had it
+scripts/leak-scan.trusted.mjs

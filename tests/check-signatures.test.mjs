@@ -98,6 +98,11 @@ const setup = (name, keys = keysWith(entry('a', A))) => { const r = repo(name); 
   const pushed = spawnSync('node', ['scripts/check-signatures.mjs', '', 'HEAD'], { cwd: r.d, encoding: 'utf8' });
   results.push({ name: '(7) the pushed, weakened checker would pass: so it is never the one run', pass: pushed.status === 0, out: (pushed.stdout + pushed.stderr).trim() });
   expect('(7) the previous head\'s checker fails a push that weakens it and adds an unsigned commit', spawnSync('node', [trusted, '', 'HEAD'], { cwd: r.d, encoding: 'utf8' }), false, 'not signed by a key'); }
+// security@'s control 8: skipping is by ancestry only, so a commit that deletes the checker skips nothing
+{ const r = setup('deleted'); mkdirSync(join(r.d, 'scripts'), { recursive: true });
+  r.commit('the check, signed', { key: A, files: { 'scripts/check-signatures.mjs': readFileSync(r.script, 'utf8') } });
+  r.g('rm', '-q', 'scripts/check-signatures.mjs'); r.commit('removes the check, unsigned change', { files: { 'x.txt': '1' } });
+  expect('(8) a commit that removes the checker and adds an unsigned change fails', r.check(r.base, 'HEAD'), false, 'not signed by a key'); }
 // security@'s control 6: a shallow clone is refused
 { const r = setup('shallowsrc'); r.commit('signed', { key: A, files: { 'x.txt': '1' } }); r.commit('signed 2', { key: A, files: { 'x.txt': '2' } });
   const d = join(tmp, 'shallow'); execFileSync('git', ['clone', '-q', '--depth', '1', `file://${r.d}`, d]);

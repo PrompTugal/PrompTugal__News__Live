@@ -10,7 +10,7 @@ key it published in the repository it maintains, and names its session.
   session only (a 0600 file outside the repository), never in a commit, page, log or message, and ends with the session.
 - Every commit after the pinned base (6a25919, the commit that published the key) is signed. `scripts/check-signatures.mjs`
   checks every commit in the pushed range, in `scripts/release.sh` before each push and in CI before anything deploys.
-- Tests: `tests/check-signatures.test.mjs` (27 cases in throwaway repositories with throwaway keys; each failing case must
+- Tests: `tests/check-signatures.test.mjs` (28 cases in throwaway repositories with throwaway keys; each failing case must
   fail for its stated reason).
 
 ## Threats and controls
@@ -20,8 +20,8 @@ key it published in the repository it maintains, and names its session.
 | A commit named as a bot or CI to be waved through | No exemption by name or author. CI makes no commits here. |
 | A commit that adds its own key and signs with it | Keys come from the parent, never from the commit's own tree; there is no self-keyed bootstrap (the key was published in an unsigned commit, the base, before the check existed). |
 | A root (orphan) commit carrying its own keys, merged in | Fails: a commit with no parent after the base has no keys to be checked against. |
-| Deleting the check file to skip the check | Skipping is by ancestry (the base and its ancestors only), not by whether the tree holds the file. |
-| A push that weakens the check that judges it | In CI the check runs as the previous head of dev had it (`git show <before>:scripts/check-signatures.mjs`); a previous head without the check stops the deploy, except the one push whose previous head is the base. The workflow file itself can still be changed by a push; branch protection is Dinis's to add later (19 Nov, about 03:15 UTC), so until then a person reviewing pushes is the remaining control. |
+| Deleting the check file to skip the check | Skipping is by ancestry (the base and its ancestors only), not by whether the tree holds the file (control 8; tested: a commit that removes the checker and adds an unsigned change fails). |
+| A push that weakens a check that judges it | In CI every security check runs as the previous head of dev had it, with that head's config: the signature check, the trailer check (and its exemptions file) and the leak scan (with its allow list). A previous head missing any of them stops the deploy; there is no fallback (security@'s control 7, widened, 19 Nov 2026). The pinned base cannot be overridden by any setting. The functional build uses the pushed tree. The workflow file itself can still be changed by a push; branch protection is Dinis's to add later (19 Nov, about 03:15 UTC), so until then a person reviewing pushes is the remaining control. |
 | A side branch keeping a removed or superseded key alive | The key must also be listed, and not superseded, in the pushed head's `team/keys.json`; a superseded key fails whatever the commit's date. |
 | A tag or a dropped CI run narrowing what is checked | CI checks the whole history after the base on every push, not a range from a tag. |
 | A force-push (a range that does not run forwards) | A start that is not an ancestor of the end fails. Branch protection against force-pushes is the real control, and is Dinis's to add. |
