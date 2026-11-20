@@ -152,6 +152,11 @@ const setup = (name, keys = keysWith(entry('a', A))) => { const r = repo(name); 
     expect('a _site symlink in the push is refused before the site is moved in', spawnSync('bash', [step], { cwd: r.d, encoding: 'utf8', env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, AFTER: head, REPO: 'x/y', GH_TOKEN: 'none', FAKE_DEPLOYED: full, RUNNER_TEMP: rt } }), false, 'carries a _site path');
     rmSync(join(r.d, '_site'), { force: true }); results.push({ name: 'the step moves the vetted site into _site', pass: rs.status === 0, out: (rs.stdout + rs.stderr).trim() }); }
   expect('an anchor run that did not pass the security job is not used', runStep(full, head, { FAKE_SECURITY_JOBS: '0' }), false, 'no last verified commit');
+  // pull-request releases: for a pull request the range runs from merge-base(base, head), and the base must lie on dev's
+  // verified line (either side of A)
+  { const pr = runStep(full, head, { EVENT: 'pull_request', PR_BASE: full }); const from = pr.status === 0 ? readFileSync(join(rt, 'trusted', 'range_from'), 'utf8').trim() : '';
+    results.push({ name: '(PR) a pull request is checked from merge-base(base, head)', pass: pr.status === 0 && from === full, out: (pr.stdout + pr.stderr).trim() }); }
+  expect('(PR) a pull request whose base is off dev\'s verified history fails', runStep(full, head, { EVENT: 'pull_request', PR_BASE: forced }), false, 'not on the verified history');
   // events.b@'s finding (e774ff9, via conductor.b@ 19 Nov 16:25): rm leaves a pushed .gitattributes in force through the
   // index; the step reads attributes from the empty tree, needs git 2.42 or later, and checks that git honours it
   { rmSync(join(r.d, '_site'), { recursive: true, force: true }); rmSync(join(r.d, 'scripts', 'leak-scan.trusted.mjs'), { force: true }); rmSync(join(r.d, 'scripts', 'commit-exemptions.json'), { force: true });
@@ -186,8 +191,11 @@ const setup = (name, keys = keysWith(entry('a', A))) => { const r = repo(name); 
   const runsPushed = job.some((l) => /(^|\s|")node\s+(scripts|tests)\//.test(l) || /\bnpm\b|\bnpx\b/.test(l));
   const deploy = lines.slice(lines.indexOf('  deploy:'), lines.indexOf('  deploy:') + 3).join('\n');
   results.push({ name: '(9) the security job uses only checkout, setup-node, download-artifact and upload-pages-artifact, and runs no pushed script', pass: from > 0 && uses.length === 4 && uses.every((u) => /^actions\/(checkout|setup-node|download-artifact|upload-pages-artifact)@v\d+$/.test(u)) && !runsPushed, out: uses.join(', ') });
-  const jobIf = (name) => { const i = lines.indexOf(`  ${name}:`); return lines.slice(i + 1, i + 4).find((l) => /^    if: /.test(l)) || ''; };
+  const jobIf = (name) => { const i = lines.indexOf(`  ${name}:`); return lines.slice(i + 1, i + 7).find((l) => /^    if: /.test(l)) || ''; };
   results.push({ name: 'the security, deploy and tag jobs run only for dev (a manual run on another branch never deploys)', pass: ['security', 'deploy', 'tag'].every((j) => jobIf(j).includes("github.ref == 'refs/heads/dev'")), out: ['security', 'deploy', 'tag'].map(jobIf).join(' | ') });
+  results.push({ name: '(PR) the security job runs on a pull request only into dev, and deploy and tag never on one', pass: /github\.event_name == 'pull_request' && github\.event\.pull_request\.base\.ref == 'dev'/.test(jobIf('security')) && !/pull_request/.test(jobIf('deploy')) && !/pull_request/.test(jobIf('tag')), out: jobIf('security') });
+  results.push({ name: '(PR) the security job runs (and fails) when the build fails, never skips: !cancelled() and a build-result step', pass: /!cancelled\(\)/.test(jobIf('security')) && lines.some((l) => l.trim() === "if: needs.build.result != 'success'"), out: jobIf('security') });
+  results.push({ name: '(PR) the workflow never uses pull_request_target', pass: !lines.some((l) => /pull_request_target/.test(l) && !/^\s*#/.test(l)), out: '' });
   results.push({ name: '(9) deploy needs the security job', pass: /needs: \[build, security\]/.test(deploy), out: deploy });
   // a pushed build step can set NODE_OPTIONS for later steps of its own job only; each security step clears it anyway
   const at = lines.findIndex((l) => l === '      - name: Signed commits (every commit after the pinned base; the trusted check)');
@@ -199,6 +207,52 @@ const setup = (name, keys = keysWith(entry('a', A))) => { const r = repo(name); 
   const out = spawnSync('bash', [step], { encoding: 'utf8', env: { ...process.env, RUNNER_TEMP: rt, AFTER: 'HEAD', NODE_OPTIONS: `--require ${evil}` } });
   let injected = true; try { readFileSync(marker); } catch { injected = false; }
   results.push({ name: '(9) NODE_OPTIONS set by a pushed step does not reach the trusted check', pass: out.status === 0 && /ran/.test(out.stdout) && !injected, out: (out.stdout + out.stderr).trim() }); }
+// Pull-request releases (cells.b@'s request; security@'s ruling a4e915600, 20 Nov 2026): a merge commit made by GitHub
+// passes only under (a) to (e), with the web-flow key read from a trusted tree ($WEBFLOW_KEYS_FROM). A stand-in key plays
+// GitHub's here; no real key is used.
+{ const gh = join(tmp, 'gnupg-webflow'); mkdirSync(gh, { mode: 0o700 }); const genv = { ...process.env, GNUPGHOME: gh };
+  const gen = (uid) => { execFileSync('gpg', ['--batch', '--passphrase', '', '--quick-gen-key', uid, 'ed25519', 'sign', 'never'], { env: genv, stdio: 'ignore' });
+    return execFileSync('gpg', ['--batch', '--with-colons', '--list-keys', uid], { env: genv, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).split('\n').find((l) => l.startsWith('fpr:')).split(':')[9]; };
+  const WF = gen('GitHub (stand-in web-flow) <noreply@github.com>'), OTHER = gen('Someone else <other@example.test>');
+  const armor = (fpr) => execFileSync('gpg', ['--batch', '--armor', '--export', fpr], { env: genv, encoding: 'utf8' });
+  const pinFiles = { 'team/github-web-flow.json': JSON.stringify({ keys: [{ fingerprint: WF, file: 'team/github-web-flow.asc' }] }), 'team/github-web-flow.asc': armor(WF) };
+  const ghMerge = (r, branch, { key = WF, extra } = {}) => {
+    r.g('merge', '-q', '--no-commit', '--no-ff', branch); if (extra) { writeFileSync(join(r.d, 'extra.txt'), extra); r.g('add', '-A'); }
+    execFileSync('git', ['-c', 'gpg.format=openpgp', '-c', 'gpg.program=gpg', '-c', `user.signingkey=${key}`, 'commit', '-q', '-S', '-m', `Merge pull request #1 from x/${branch}`], { cwd: r.d, env: { ...genv, GIT_COMMITTER_NAME: 'GitHub', GIT_COMMITTER_EMAIL: 'noreply@github.com', GIT_AUTHOR_NAME: 'live.b', GIT_AUTHOR_EMAIL: 'live.b@example.test' } });
+    return r.g('rev-parse', 'HEAD'); };
+  const run = (r, from, env = {}) => spawnSync('node', [r.script, '', 'HEAD'], { cwd: r.d, encoding: 'utf8', env: { ...process.env, WEBFLOW_KEYS_FROM: from, ...env } });
+  const mk = (name, { pinKey = true } = {}) => { const r = setup(name); const trusted = r.commit('pins the web-flow key', { key: A, files: pinKey ? pinFiles : { 'x.txt': '0' } });
+    r.g('checkout', '-q', '-b', 'pr'); r.commit('the change', { key: A, files: { 'p.txt': '1' } }); r.g('checkout', '-q', 'main'); return { r, trusted }; };
+  { const { r, trusted } = mk('wf-good'); const m = ghMerge(r, 'pr'); const out = join(tmp, 'wf-out.txt');
+    const o = run(r, trusted, { WEBFLOW_OUT: out }); expect('(PR) a clean GitHub merge of agent-signed commits passes', o, true);
+    let listed = ''; try { listed = readFileSync(out, 'utf8'); } catch {} results.push({ name: '(PR) ... and it is listed for the attestation step (f, g)', pass: listed.startsWith(m + ' '), out: listed.trim() }); }
+  { const { r, trusted } = mk('wf-nokey', { pinKey: false }); ghMerge(r, 'pr'); expect('(PR) with no pinned web-flow key, every GitHub merge fails', run(r, trusted), false, 'no web-flow key is pinned'); }
+  { const { r } = mk('wf-notrust'); ghMerge(r, 'pr'); expect('(PR) without a trusted tree for the keys, it fails', run(r, ''), false, 'no trusted tree'); }
+  { const { r, trusted } = mk('wf-other'); ghMerge(r, 'pr', { key: OTHER }); expect('(PR) a merge signed by another gpg key fails', run(r, trusted), false, 'not signed by a pinned web-flow key'); }
+  { const { r, trusted } = mk('wf-extra'); ghMerge(r, 'pr', { extra: 'hand edit' }); expect('(PR) a GitHub merge with an extra edit fails (merge-tree)', run(r, trusted), false, 'not the clean merge'); }
+  { const { r, trusted } = mk('wf-unsigned'); r.g('checkout', '-q', 'pr'); r.commit('unsigned in the PR', { files: { 'q.txt': '1' } }); r.g('checkout', '-q', 'main'); ghMerge(r, 'pr');
+    expect('(PR) a merge that brings in an unsigned commit fails', run(r, trusted), false, 'not signed by a key'); }
+  { const { r, trusted } = mk('wf-webedit'); writeFileSync(join(r.d, 'w.txt'), 'edited in the browser'); r.g('add', '-A');
+    execFileSync('git', ['-c', 'gpg.format=openpgp', '-c', 'gpg.program=gpg', '-c', `user.signingkey=${WF}`, 'commit', '-q', '-S', '-m', 'Update w.txt'], { cwd: r.d, env: { ...genv, GIT_COMMITTER_NAME: 'GitHub', GIT_COMMITTER_EMAIL: 'noreply@github.com' } });
+    expect('(PR) a web edit signed by web-flow (one parent) fails', run(r, trusted), false, 'not a two-parent merge'); }
+  { const r = setup('wf-retired'); const ret = { 'team/github-web-flow.json': JSON.stringify({ keys: [{ fingerprint: WF, file: 'team/github-web-flow.asc', retired: true }] }), 'team/github-web-flow.asc': armor(WF) };
+    const trusted = r.commit('pins a retired key', { key: A, files: ret }); r.g('checkout', '-q', '-b', 'pr'); r.commit('the change', { key: A, files: { 'p.txt': '1' } }); r.g('checkout', '-q', 'main'); const m = ghMerge(r, 'pr');
+    expect('(PR) a retired web-flow key does not verify a new merge', run(r, trusted), false, 'not signed by a pinned web-flow key');
+    expect('(PR) ... but still verifies a merge attested before (an ancestor of WEBFLOW_SINCE)', run(r, trusted, { WEBFLOW_SINCE: m }), true); }
+  { const { r, trusted } = mk('wf-swap'); r.g('checkout', '-q', 'pr'); r.commit('swaps in its own key', { key: A, files: { 'team/github-web-flow.json': JSON.stringify({ keys: [{ fingerprint: OTHER, file: 'team/github-web-flow.asc' }] }), 'team/github-web-flow.asc': armor(OTHER) } });
+    r.g('checkout', '-q', 'main'); ghMerge(r, 'pr', { key: OTHER }); expect('(PR) a key swapped in by a pushed commit is not used (keys come from the trusted tree)', run(r, trusted), false, 'not signed by a pinned web-flow key'); } }
+// The attestation of GitHub-made merges (f, g), scripts/attest-webflow.sh, with a stand-in for gh
+{ const att = join(dirname(fileURLToPath(import.meta.url)), '..', 'scripts', 'attest-webflow.sh'); const bin = join(tmp, 'fakebin-att'); mkdirSync(bin, { recursive: true });
+  writeFileSync(join(bin, 'gh'), '#!/bin/sh\ncase "$2" in\n  */commits/*/pulls) echo "${FAKE_PR:-1}" ;;\n  */actions/workflows/pages.yml/runs*) echo "${FAKE_RUN-42}" ;;\n  */actions/runs/*/jobs*) echo "${FAKE_SEC:-1}" ;;\nesac\nexit 0\n', { mode: 0o755 });
+  writeFileSync(join(bin, 'sleep'), '#!/bin/sh\nexit 0\n', { mode: 0o755 });
+  const list = join(tmp, 'att.txt'); writeFileSync(list, `${'a'.repeat(40)} ${'b'.repeat(40)}\n`);
+  const runA = (env) => spawnSync('bash', [att, list], { encoding: 'utf8', env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, REPO: 'x/y', GH_TOKEN: 'none', ...env } });
+  expect('(PR) attestation passes for a merged pull request whose head passed security', runA({}), true, 'passed the security job');
+  expect('(PR) attestation fails when no merged pull request has this merge commit (f)', runA({ FAKE_PR: '0' }), false, '(f)');
+  expect('(PR) attestation fails when the head has no successful pull_request run (g)', runA({ FAKE_RUN: '' }), false, '(g)');
+  expect('(PR) attestation fails when the security job was red on the head (g)', runA({ FAKE_SEC: '0' }), false, 'did not pass');
+  const empty = join(tmp, 'att-empty.txt'); writeFileSync(empty, '');
+  expect('(PR) with no GitHub-made merge, attestation has nothing to do', spawnSync('bash', [att, empty], { encoding: 'utf8' }), true, 'no GitHub-made merge'); }
 // security@'s control 10, no symlinks (ed70bd996), and its pre-review: the step refuses a symlink in any commit from the
 // anchor, in the pushed tree or in the checkout, unless the anchor's exceptions list its exact path and target
 { const A_KEY = A; const yml = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', '.github', 'workflows', 'pages.yml'), 'utf8').split('\n');

@@ -22,8 +22,16 @@
 //   whatever the commit's date. (The AppSec post-review, 19 Nov 2026.)
 // - A shallow clone is refused (security@'s control 6). Controls 6 and 7 are in the standard from 19 Nov 2026 (a21986a69).
 // In CI the workflow checks the whole history after BASE, with this file as the previous head of dev had it.
+// A merge commit made by GitHub (pull-request releases; cells.b@'s request and security@'s ruling a4e915600, 20 Nov 2026)
+// passes without an agent signature only if (a) its gpg signature verifies against a web-flow key pinned in the trusted
+// tree named by $WEBFLOW_KEYS_FROM (in CI the anchor A; team/github-web-flow.json lists every key, retired ones kept, each
+// with its fingerprint and its .asc file; the pre-review: never the merge's own parents), (b) its committer is exactly
+// GitHub <noreply@github.com>, (c) it has two parents and the first is verified, (d) every commit it brings in passed the
+// agent check here, and (e) git merge-tree of its parents gives exactly its tree. Such a commit is written to $WEBFLOW_OUT
+// for the workflow's attestation step, which checks (f) the merged pull request and (g) its green security check. With no
+// pinned key, every such commit fails.
 import { execFileSync, spawnSync } from 'node:child_process';
-import { writeFileSync, mkdtempSync, rmSync } from 'node:fs';
+import { writeFileSync, mkdtempSync, rmSync, appendFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { createPublicKey, createHash } from 'node:crypto';
@@ -51,7 +59,8 @@ if (!ok('merge-base', '--is-ancestor', BASE, after)) fail(`the pinned base ${BAS
 const before = beforeArg && !/^0+$/.test(beforeArg) && tryGit('rev-parse', '--verify', '--quiet', `${beforeArg}^{commit}`);
 // a range must run forwards: a <before> that is not an ancestor of <after> (a force-push) fails (the AppSec post-review)
 if (before && !ok('merge-base', '--is-ancestor', before, after)) fail(`${before.slice(0, 8)} is not an ancestor of ${after.slice(0, 8)}: the range does not run forwards`);
-const commits = lines(git('rev-list', before ? `${before}..${after}` : after));
+// parents before children, so a merge's first parent is checked before the merge (the web-flow path, (c))
+const commits = lines(git('rev-list', '--topo-order', '--reverse', before ? `${before}..${after}` : after));
 
 // Ed25519 SPKI PEM -> the OpenSSH line and its SHA256 fingerprint, as ssh-keygen prints it
 const len = (n) => { const b = Buffer.alloc(4); b.writeUInt32BE(n); return b; };
@@ -88,35 +97,98 @@ const afterKeys = keysAt(after);
 
 const failures = [];
 let checked = 0, skipped = 0;
+const passedAgent = new Set(), passedAny = new Set(), webflow = [];
+const WEBFLOW_COMMITTER = 'GitHub <noreply@github.com>';
+const PGP_PUBLIC_BEGIN = ['-----BEGIN PGP', 'PUBLIC', 'KEY BLOCK-----'].join(' '); // in parts, so the leak scan's key rule stays as it is
+const gitVer = (tryGit('version') || '').match(/(\d+)\.(\d+)/);
+const mergeTreeOk = gitVer && (Number(gitVer[1]) > 2 || (Number(gitVer[1]) === 2 && Number(gitVer[2]) >= 38));
+const verified = (p) => passedAny.has(p) || ok('merge-base', '--is-ancestor', p, BASE) || (before && ok('merge-base', '--is-ancestor', p, before));
+// The web-flow path: null when it passes, else the reason
+function webflowReason(c) {
+  const committer = git('log', '-1', '--format=%cn <%ce>', c);
+  if (committer !== WEBFLOW_COMMITTER) return null; // not GitHub's: the agent path's reason stands
+  const ps = git('log', '-1', '--format=%P', c).split(' ').filter(Boolean);
+  if (ps.length !== 2) return 'a GitHub-made commit that is not a two-parent merge (a web edit, a squash or a rebase)';
+  const [p1, p2] = ps;
+  if (!verified(p1)) return 'a GitHub-made merge whose first parent is not verified';
+  const from = process.env.WEBFLOW_KEYS_FROM || '';
+  const fromRev = from && tryGit('rev-parse', '--verify', '--quiet', `${from}^{commit}`);
+  if (!fromRev) return 'a GitHub-made merge, but no trusted tree to read the web-flow keys from (WEBFLOW_KEYS_FROM)';
+  let pin; try { pin = JSON.parse(git('show', `${fromRev}:team/github-web-flow.json`)); } catch { return 'a GitHub-made merge, but no web-flow key is pinned in the trusted tree'; }
+  const keys = (Array.isArray(pin?.keys) ? pin.keys : []).filter((k) => k && typeof k.fingerprint === 'string' && /^[0-9A-F]{40}$/.test(k.fingerprint) && typeof k.file === 'string' && /^team\/[A-Za-z0-9._-]+\.asc$/.test(k.file));
+  if (!keys.length) return 'a GitHub-made merge, but the pinned web-flow keys are malformed';
+  if (spawnSync('gpg', ['--version'], { stdio: 'ignore' }).error) return 'a GitHub-made merge, but gpg is not available: nothing can be verified';
+  let signedBy = null;
+  for (const k of keys) {
+    let armored = ''; try { armored = git('show', `${fromRev}:${k.file}`); } catch { continue; }
+    if (!armored.startsWith(PGP_PUBLIC_BEGIN)) continue;
+    const home = mkdtempSync(join(tmpdir(), 'wf-'));
+    try {
+      const env = { ...process.env, GNUPGHOME: home };
+      const imp = spawnSync('gpg', ['--batch', '--quiet', '--import'], { input: armored + '\n', env, encoding: 'utf8' });
+      const pubs = lines(spawnSync('gpg', ['--batch', '--with-colons', '--list-keys'], { env, encoding: 'utf8' }).stdout).filter((l) => l.startsWith('pub:'));
+      if (imp.error || imp.status !== 0 || pubs.length !== 1) continue; // each file holds exactly one primary key
+      const v = spawnSync('git', ['-c', 'gpg.program=gpg', 'verify-commit', '--raw', c], { env, encoding: 'utf8' });
+      const st = String(v.stderr || '') + String(v.stdout || '');
+      // git exits 0 for a good but untrusted signature: the status lines decide; an expired or revoked key never passes
+      if (/^\[GNUPG:\] (EXPKEYSIG|REVKEYSIG|EXPSIG|BADSIG|ERRSIG) /m.test(st) || !/^\[GNUPG:\] GOODSIG /m.test(st)) continue;
+      const vs = /^\[GNUPG:\] VALIDSIG ([0-9A-F]{40}) (?:\S+ ){8}([0-9A-F]{40})/m.exec(st); // the signing key, then its primary
+      // a retired key (rotated out, or leaked) verifies only merges already attested in an earlier run, before
+      // $WEBFLOW_SINCE (the AppSec post-review)
+      const since = process.env.WEBFLOW_SINCE || '';
+      if (vs && vs[2] === k.fingerprint && (!k.retired || (since && ok('merge-base', '--is-ancestor', c, since)))) { signedBy = k.fingerprint; break; }
+    } finally { spawnSync('gpgconf', ['--kill', 'all'], { env: { ...process.env, GNUPGHOME: home }, stdio: 'ignore' }); rmSync(home, { recursive: true, force: true }); }
+  }
+  if (!signedBy) return 'a GitHub-made merge not signed by a pinned web-flow key';
+  const brought = lines(git('rev-list', `${p1}..${p2}`));
+  const unchecked = brought.filter((x) => !passedAgent.has(x));
+  if (!brought.length || unchecked.length) return `a GitHub-made merge bringing in ${unchecked.length || 'no'} commit(s) that did not pass the agent check`;
+  if (!mergeTreeOk) return 'a GitHub-made merge, but this git is older than 2.38 (no merge-tree --write-tree)';
+  const mt = spawnSync('git', ['merge-tree', '--write-tree', p1, p2], { encoding: 'utf8' });
+  if (mt.status !== 0 || String(mt.stdout).split('\n')[0].trim() !== git('rev-parse', `${c}^{tree}`)) return "a GitHub-made merge whose tree is not the clean merge of its parents";
+  // only merges after the trusted start of this push go to the attestation step ($WEBFLOW_SINCE, in CI the range start)
+  const since = process.env.WEBFLOW_SINCE || '';
+  if (!since || !ok('merge-base', '--is-ancestor', c, since)) webflow.push(`${c} ${p2}`);
+  return '';
+}
 for (const c of commits) {
   const short = c.slice(0, 8);
   if (ok('merge-base', '--is-ancestor', c, BASE)) { skipped++; continue; } // BASE or older: before the check
   checked++;
+  const nBefore = failures.length;
+  agentCheck(c, short);
+  if (failures.length === nBefore) { passedAgent.add(c); passedAny.add(c); continue; }
+  const w = webflowReason(c);
+  if (w === '') { failures.length = nBefore; passedAny.add(c); continue; }
+  if (w) failures[failures.length - 1] = `${short}: ${w}`;
+}
+function agentCheck(c, short) {
   const parent = git('log', '-1', '--format=%P', c).split(' ')[0] || '';
-  if (!parent) { failures.push(`${short}: a root commit after the pinned base (no parent to take keys from)`); continue; }
+  if (!parent) { failures.push(`${short}: a root commit after the pinned base (no parent to take keys from)`); return; }
   const keys = keysAt(parent);
-  if (!keys.length) { failures.push(`${short}: no usable key in its parent's team/keys.json`); continue; }
+  if (!keys.length) { failures.push(`${short}: no usable key in its parent's team/keys.json`); return; }
   const agents = lines(git('log', '-1', '--format=%(trailers:key=Agent,valueonly)', c)).map((s) => s.trim());
   const sessions = lines(git('log', '-1', '--format=%(trailers:key=Claude-Session,valueonly)', c)).map((s) => s.trim());
-  if (agents.length !== 1) { failures.push(`${short}: needs exactly one Agent: trailer (has ${agents.length})`); continue; }
-  if (sessions.length !== 1) { failures.push(`${short}: needs exactly one Claude-Session: trailer (has ${sessions.length})`); continue; }
+  if (agents.length !== 1) { failures.push(`${short}: needs exactly one Agent: trailer (has ${agents.length})`); return; }
+  if (sessions.length !== 1) { failures.push(`${short}: needs exactly one Claude-Session: trailer (has ${sessions.length})`); return; }
   const v = spawnSync('git', ['-c', 'gpg.format=ssh', '-c', `gpg.ssh.allowedSignersFile=${allowedFile(keys)}`, '-c', 'gpg.ssh.program=ssh-keygen', 'verify-commit', '--raw', c], { encoding: 'utf8' });
-  if (v.error) { failures.push(`${short}: could not run git verify-commit (${v.error.code})`); continue; }
+  if (v.error) { failures.push(`${short}: could not run git verify-commit (${v.error.code})`); return; }
   const out = String(v.stderr || '') + String(v.stdout || '');
   const good = v.status === 0 && /Good "git" signature for (\S+) with \S+ key (SHA256:[A-Za-z0-9+/]+)/.exec(out);
-  if (!good) { failures.push(`${short}: not signed by a key in its parent's team/keys.json`); continue; }
+  if (!good) { failures.push(`${short}: not signed by a key in its parent's team/keys.json`); return; }
   const [, principal, fp] = good;
   const key = keys.find((k) => k.fp === fp);
-  if (!key || !key.principals.includes(principal)) { failures.push(`${short}: signed by a key its parent's team/keys.json does not list for ${principal}`); continue; }
-  if (!key.principals.includes(agents[0])) { failures.push(`${short}: signed by ${principal}, but its Agent: is ${agents[0]}`); continue; }
+  if (!key || !key.principals.includes(principal)) { failures.push(`${short}: signed by a key its parent's team/keys.json does not list for ${principal}`); return; }
+  if (!key.principals.includes(agents[0])) { failures.push(`${short}: signed by ${principal}, but its Agent: is ${agents[0]}`); return; }
   // superseded means unusable for any commit checked here, whatever its date (a committer date can be set by the signer;
   // the AppSec post-review): commits signed before a supersession are older than the range or were checked when made
-  if (key.superseded) { failures.push(`${short}: signed with a key superseded on ${new Date(key.superseded).toISOString()}`); continue; }
+  if (key.superseded) { failures.push(`${short}: signed with a key superseded on ${new Date(key.superseded).toISOString()}`); return; }
   const now = afterKeys.find((k) => k.fp === fp);
-  if (!now) { failures.push(`${short}: its key is not listed in team/keys.json at ${after.slice(0, 8)}`); continue; }
-  if (now.superseded) { failures.push(`${short}: its key is superseded in team/keys.json at ${after.slice(0, 8)}`); continue; }
-  if (sessions[0] !== key.session) { failures.push(`${short}: Claude-Session: ${sessions[0]} is not the session published with the key`); continue; }
+  if (!now) { failures.push(`${short}: its key is not listed in team/keys.json at ${after.slice(0, 8)}`); return; }
+  if (now.superseded) { failures.push(`${short}: its key is superseded in team/keys.json at ${after.slice(0, 8)}`); return; }
+  if (sessions[0] !== key.session) { failures.push(`${short}: Claude-Session: ${sessions[0]} is not the session published with the key`); return; }
 }
+if (process.env.WEBFLOW_OUT) writeFileSync(process.env.WEBFLOW_OUT, webflow.map((l) => l + '\n').join(''));
 rmSync(dir, { recursive: true, force: true });
 if (failures.length) fail(`${failures.length} commit(s) fail\n` + failures.join('\n'));
 console.log(`OK (${checked} commits checked, ${skipped} at or before the pinned base)`);

@@ -27,3 +27,6 @@ live.b@'s (a) to (e) stand, (e) is required, and security@ adds (f) and (g). web
 - Any other web-flow commit fails: a web edit, a squash or a rebase.
 - PR-event job: the checker comes from the base sha, the PR head is data only, contents: read, no secrets, and the PR is never checked out under pull_request_target (security@'s ruling of 19 Nov, 14:24).
 - Tests: a web-edited web-flow commit fails; a merge-tree mismatch fails; a red security check on the head fails; a squash fails.
+
+## How a pull request's branch is brought up to date (the AppSec post-review, 20 Nov, 19:08 wake)
+Never with GitHub's "Update branch" button. That makes a GitHub-signed merge inside the pull request, with dev as its second parent. No merged pull request has it as its merge commit, so it can never be attested, and the final merge into dev then brings it in and fails. Bring a branch up to date with an agent-signed merge of dev, or by rebasing and re-signing, then push the branch.

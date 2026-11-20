@@ -5,6 +5,11 @@ name: Pages
 on:
   push:
     branches: [dev]
+  # Pull-request releases (cells.b@'s request; security@'s ruling a4e915600, 20 Nov 2026): the security job also runs on a
+  # pull request to dev, with the checks from the anchor A and the pull request's head as data only. Never
+  # pull_request_target. Nothing deploys or tags from a pull request.
+  pull_request:
+    branches: [dev]
   workflow_dispatch:
   # No schedule: every run starts from a commit (Dinis, 19 Nov 2026, about 01:20 UTC, main repo
   # board/guidance/2026-11-19-every-run-starts-from-a-commit.md). The pages load their changing figures in the
@@ -12,7 +17,8 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: pages
+  # one queue for dev and one per pull request, so a pull request run never displaces a pending push run (the pre-review)
+  group: pages-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || 'dev' }}
   cancel-in-progress: false
 env:
   # Major and minor are set here by a person. The patch number is set by this workflow only:
@@ -69,12 +75,16 @@ jobs:
   # (security@'s control 9, ruling 16402a95c, 19 Nov 2026).
   security:
     needs: build
-    if: github.ref == 'refs/heads/dev'
+    # for a push or a manual run on dev, and for every pull request into dev (a fork's fails below, never skips: a skipped
+    # required check would pass; the pre-review)
+    # !cancelled(): when the build fails this job still runs and fails, never skips (the AppSec post-review, 20 Nov)
+    if: ${{ !cancelled() && ((github.event_name != 'pull_request' && github.ref == 'refs/heads/dev') || (github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'dev')) }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
       contents: read
       actions: read # to read the anchor: the latest successful push run of this workflow on dev (security@'s ruling 0ba439611)
+      pull-requests: read # the same, item f
     env:
       GIT_NO_REPLACE_OBJECTS: '1'
       NODE_OPTIONS: ''
@@ -82,10 +92,19 @@ jobs:
       # diff or log; rm alone leaves the index copy in force (events.b@'s finding e774ff9, via conductor.b@, 19 Nov 16:25)
       GIT_ATTR_SOURCE: 4b825dc642cb6eb9a060e54bf8d69288fbee4904
     steps:
+      - name: The build passed (otherwise this required check fails, never skips)
+        if: needs.build.result != 'success'
+        run: |
+          echo "the build did not pass: not checked, not mergeable, not deploying" >&2; exit 1
+      - name: A pull request from a fork fails here (this repository's branches only)
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
+        run: |
+          echo "a pull request from another repository: not checked here, not mergeable" >&2; exit 1
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
           persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -102,9 +121,11 @@ jobs:
       # (security@'s rulings fae9649db, 3724c9ca2 and 948820a7e, 19 Nov 2026). The functional build uses the pushed tree.
       - name: Take the security checks from the last verified commit
         env:
-          AFTER: ${{ github.sha }}
+          AFTER: ${{ github.event.pull_request.head.sha || github.sha }}
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
+          EVENT: ${{ github.event_name }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
         run: |
           unset NODE_OPTIONS; export GIT_NO_REPLACE_OBJECTS=1; export GIT_ATTR_SOURCE=4b825dc642cb6eb9a060e54bf8d69288fbee4904
           # the pushed tree must not track _site, and the downloaded site holds plain files and directories only; both are
@@ -126,7 +147,16 @@ jobs:
           # anchor (the 16:08 AppSec review; only branch protection fully closes a pushed rewrite of the workflow)
           if ! printf '%s' "$RUN_ID" | grep -Eq '^[0-9]+$' || [ "$(gh api "repos/$REPO/actions/runs/$RUN_ID/jobs?per_page=50" --jq '[.jobs[] | select(.name == "security" and .conclusion == "success")] | length' || echo 0)" != "1" ]; then A=""; fi
           if ! printf '%s' "$A" | grep -Eq '^[0-9a-f]{40}$' || ! git cat-file -e "$A^{commit}" 2>/dev/null; then echo "no last verified commit (successful push run of this workflow on dev) to take the checks from: not deploying" >&2; exit 1; fi
-          if ! git merge-base --is-ancestor "$A" "$AFTER"; then echo "the last verified commit is not an ancestor of this push (a force push): not deploying" >&2; exit 1; fi
+          # the range checked: for a push, A..AFTER; for a pull request, merge-base(base, head)..head, with A and the base on
+          # one line of dev's history (either may be newer: dev can move on while the pull request waits; the pre-review)
+          if [ "$EVENT" = "pull_request" ]; then
+            if ! printf '%s' "$PR_BASE" | grep -Eq '^[0-9a-f]{40}$' || ! git cat-file -e "$PR_BASE^{commit}" 2>/dev/null; then echo "the pull request's base is not a commit here" >&2; exit 1; fi
+            if ! git merge-base --is-ancestor "$A" "$PR_BASE" && ! git merge-base --is-ancestor "$PR_BASE" "$A"; then echo "the pull request's base is not on the verified history of dev" >&2; exit 1; fi
+            FROM=$(git merge-base "$PR_BASE" "$AFTER")
+          else
+            if ! git merge-base --is-ancestor "$A" "$AFTER"; then echo "the last verified commit is not an ancestor of this push (a force push): not deploying" >&2; exit 1; fi
+            FROM="$A"
+          fi
           # Control 10, no symlinks (security@'s ed70bd996, 19 Nov 2026), with its pre-review's hardening: every commit
           # from A to AFTER, the pushed tree and the checkout. A symlink passes only if A's scripts/symlink-exceptions.json
           # lists its exact path and target, each with a reason. Paths are compared as whole byte strings, read
@@ -200,13 +230,16 @@ jobs:
           console.log(`control 10: no symlink outside the anchor's ${ex.size} exception(s)`);
           C10
           NODE_BIN="$(command -v node)"; case "$NODE_BIN" in /*) ;; *) echo "node is not on an absolute path" >&2; exit 1 ;; esac
-          "$NODE_BIN" "$RUNNER_TEMP/control10.mjs" "$A" "$AFTER"
+          "$NODE_BIN" "$RUNNER_TEMP/control10.mjs" "$FROM" "$AFTER"
           mv "$DL" _site
           mkdir -p "$RUNNER_TEMP/trusted"
           printf '%s\n' "$A" > "$RUNNER_TEMP/trusted/anchor"
+          printf '%s\n' "$FROM" > "$RUNNER_TEMP/trusted/range_from"
           for f in check-signatures.mjs check-commits.mjs leak-scan.mjs; do
             git show "$A:scripts/$f" > "$RUNNER_TEMP/trusted/$f" 2>/dev/null || { echo "the last verified commit has no scripts/$f: not deploying" >&2; exit 1; }
           done
+          # the attestation of GitHub-made merges, if the anchor has it; without it, a push that lists one fails below
+          if git cat-file -e "$A:scripts/attest-webflow.sh" 2>/dev/null; then git show "$A:scripts/attest-webflow.sh" > "$RUNNER_TEMP/trusted/attest-webflow.sh"; fi
           # no symlink on any path the checks write or read as config (security@'s control 9)
           for p in scripts scripts/commit-exemptions.json scripts/leak-scan.trusted.mjs _site; do if [ -L "$p" ]; then echo "$p is a symlink: not deploying" >&2; exit 1; fi; done
           if [ -e scripts ] && [ ! -d scripts ]; then echo "scripts is not a directory: not deploying" >&2; exit 1; fi
@@ -225,21 +258,32 @@ jobs:
           "$NODE_BIN" scripts/leak-scan.trusted.mjs
       - name: Every commit from the last verified commit carries an Agent trailer (the trusted check)
         env:
-          AFTER: ${{ github.sha }}
+          AFTER: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           unset NODE_OPTIONS; export GIT_NO_REPLACE_OBJECTS=1; export GIT_ATTR_SOURCE=4b825dc642cb6eb9a060e54bf8d69288fbee4904; NODE_BIN="$(command -v node)"; case "$NODE_BIN" in /*) ;; *) exit 1 ;; esac
           # after the leak scan, the pushed exemptions give way to A's, or to none
           if [ -L scripts/commit-exemptions.json ]; then echo "scripts/commit-exemptions.json is a symlink: not deploying" >&2; exit 1; fi
           if [ -f "$RUNNER_TEMP/trusted/commit-exemptions.json" ]; then cp "$RUNNER_TEMP/trusted/commit-exemptions.json" scripts/commit-exemptions.json; else rm -f scripts/commit-exemptions.json; fi
-          "$NODE_BIN" "$RUNNER_TEMP/trusted/check-commits.mjs" "$(cat "$RUNNER_TEMP/trusted/anchor")" "$AFTER"
+          "$NODE_BIN" "$RUNNER_TEMP/trusted/check-commits.mjs" "$(cat "$RUNNER_TEMP/trusted/range_from")" "$AFTER"
       - name: Signed commits (every commit after the pinned base; the trusted check)
         env:
-          AFTER: ${{ github.sha }}
+          AFTER: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           unset NODE_OPTIONS; export GIT_NO_REPLACE_OBJECTS=1; export GIT_ATTR_SOURCE=4b825dc642cb6eb9a060e54bf8d69288fbee4904; NODE_BIN="$(command -v node)"; case "$NODE_BIN" in /*) ;; *) exit 1 ;; esac
+          export WEBFLOW_KEYS_FROM="$(cat "$RUNNER_TEMP/trusted/anchor")" WEBFLOW_SINCE="$(cat "$RUNNER_TEMP/trusted/range_from")" WEBFLOW_OUT="$RUNNER_TEMP/trusted/webflow.txt"
           "$NODE_BIN" "$RUNNER_TEMP/trusted/check-signatures.mjs" "" "$AFTER"
+      - name: GitHub-made merges in this push came from green pull requests (the trusted attestation)
+        if: github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          unset NODE_OPTIONS; export GIT_NO_REPLACE_OBJECTS=1; export GIT_ATTR_SOURCE=4b825dc642cb6eb9a060e54bf8d69288fbee4904
+          if [ ! -s "$RUNNER_TEMP/trusted/webflow.txt" ]; then echo "no GitHub-made merge in this push"; exit 0; fi
+          if [ ! -f "$RUNNER_TEMP/trusted/attest-webflow.sh" ]; then echo "a GitHub-made merge, but the anchor has no attestation script: not deploying" >&2; exit 1; fi
+          bash "$RUNNER_TEMP/trusted/attest-webflow.sh" "$RUNNER_TEMP/trusted/webflow.txt"
       # the deployed bytes are the scanned bytes: the Pages artifact is made here, from the site this job scanned (library.b@)
-      - if: needs.build.outputs.deploy == 'true'
+      - if: github.event_name != 'pull_request' && needs.build.outputs.deploy == 'true'
         uses: actions/upload-pages-artifact@v3
         with:
           path: _site
