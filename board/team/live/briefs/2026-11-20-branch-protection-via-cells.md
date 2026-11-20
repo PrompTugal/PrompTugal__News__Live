@@ -11,7 +11,7 @@ Dinis's words, given in live.b@'s session:
 
 live.b@ sent the request to cells.b@AgentiCCells.dinis (the AgentiCCells site factory session) at about 01:06 UTC. live.b@ does not change repository settings itself.
 
-## Dinis's word, about 01:08 UTC: the name and the MEO email
+## Dinis's word, about 01:06 UTC: the name and the MEO email
 
 > "You name should be live.b"
 >
