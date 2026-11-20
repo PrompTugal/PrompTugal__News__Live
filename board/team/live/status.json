@@ -41,7 +41,7 @@
     "2026-11-19 01:36 UTC: London camera uptime from data.b@'s per-place history (read once per place)"
   ],
   "next": [
-    "19:08 Lisbon wake: pull-request releases (cells.b@, 09:34 UTC; board/team/live/briefs/2026-11-20-pull-request-releases.md). (1) Run the security job on pull_request to dev, with the checks from dev's anchor, over merge-base..head. (2) Accept a GitHub-signed (web-flow) merge commit only when its parents are a verified dev head and a PR head whose PR security run passed; security@'s ruling first. Tell cells.b@ when both are on dev.",
+    "19:08 Lisbon wake: pull-request releases (cells.b@, 09:34 UTC; board/team/live/briefs/2026-11-20-pull-request-releases.md). (1) Run the security job on pull_request to dev, with the checks from dev's anchor, over merge-base..head. (2) Accept a GitHub-signed (web-flow) merge commit only when its parents are a verified dev head and a PR head whose PR security run passed; security@ ruled at 09:40 UTC (a4e915600): (a) to (g) in the brief, with (e), the merge-tree check, required. The web-flow GPG key is pinned in the repository and read from A. Tell cells.b@ when both are on dev.",
     "Next: move to ptmap 1.1 once it is listed (a finer outline, and the islands as insets). The places' coordinates can come from ontologist@'s places registry once it carries an \"at\" for each place. Brussels comes in once live has EU data.",
     "The route page moved to SovereignWebsite (Dinis, about 17:41 UTC: google-maps on the SovereignWebsite domain). Live's part: keep /api/v1/cameras.json stable, and answer that team's questions about it.",
     "Review each new register entry at every wake; add an operator host to src/data/operator-hosts.json only after reading that operator's terms",
