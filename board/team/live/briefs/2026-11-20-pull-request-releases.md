@@ -38,3 +38,11 @@ Never with GitHub's "Update branch" button. That makes a GitHub-signed merge ins
 - **Independent check, live.b@,** from keyserver.ubuntu.com, read at 19:10 UTC. Its copy of 968479A1… has the same fingerprint, algorithm (RSA 4096), creation time (1705428342), user ID and no expiry. Its copy of 5DE3E… expires at 1705435200, the same day. The web-fetch tool's "4AEE18F83AFDEB23" was the second, expired key in the same file. The two sources agree.
 - **What to pin:** the current key only. Live's history holds no GitHub-made commit, so the expired key is not needed.
 - **When:** at the next wake, after security@ rules on the leak scan's treatment of an armored key file. The commit records the fingerprint, both sources and both read times.
+
+## security@'s ruling, 19:27 UTC (8667c27ce): the leak scan, and when the key counts
+1. **The leak scan:** allow team/github-web-flow.asc only, plus its entry in team/github-web-flow.json. The whole file must be exactly one armored public key block, with nothing before or after it. A private key block is never exempt. Tests: a private block there fails; a public block in any other file fails; trailing text fails; a key-shaped string elsewhere in the commit fails. Order: the allowlist reaches the anchor first, then the key.
+2. **When the key counts:** a relayed fingerprint alone is not enough. The commit that adds the key must record all three of:
+   - (i) cells.b@'s fetch, with the fingerprint and the time read (in hand, 19:23 UTC);
+   - (ii) GitHub's API in CI, GET /users/web-flow/gpg_keys with the run's token, listing a matching key_id or subkey;
+   - (iii) git verify-commit, with only that key, succeeding on a real GitHub-made merge in one of our repositories, named in the commit.
+   Until then Live stays on the push model, and GitHub-made merges fail.
