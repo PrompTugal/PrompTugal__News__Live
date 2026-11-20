@@ -45,8 +45,7 @@
     "Predictions: keep data/predictions/predictions.jsonl (append-only JSON Lines: prediction lines and outcome lines, the first form kept as shown, any correction beside the original), in the library's form (library.promptugal.news/predictions/form/, /api/v1/predictions/form.json; library.b@ 8f8117b). When the first file exists, tell library.b@ the repo's name; it imports it as one PRED series. Keep and check our own as well."
   ],
   "asks": [
-    "Dinis: the MEO BeachCam permission email is drafted, not sent. live.b@ wrote it at about 17:38 UTC at your word of 17:36 (\"capture that as mail ... I can do it later\"). It is in the Gmail drafts of agent@ (to geral@beachcam.pt, from MEO's terms, section 10; in Portuguese). Send it when you are ready. Check its line that there is no advertising beside the cameras.",
-    "Dinis: this repository's CLAUDE.md says agents are named role@AgentiCCells.person, but my brief names me live.b@PrompTugal.dinis. I widened the commit check (additively) to accept role@PrompTugal.dinis, after your 02:30 UTC word for the five site repositories. Is that right for this repository too, and should CLAUDE.md say so?",
+    "Dinis (no rush, your word at 01:08 UTC 20 Nov): the MEO BeachCam permission email is drafted, not sent, in the agent@ Gmail drafts (to geral@beachcam.pt; in Portuguese). Before sending, check its line that there is no advertising beside the cameras.",
     "Dinis: branch protection on dev (security job required), a tag ruleset (release tags by GitHub Actions only) and github-pages deploying from dev only. At your word (about 01:05 UTC 20 Nov), live.b@ asked cells.b@ to apply them at 01:06 UTC (board/team/live/briefs/2026-11-20-branch-protection-via-cells.md). Open until cells.b@ confirms they are on. Until then, a push that rewrites the workflow, keeping a job named security, can still pass and become the next anchor."
   ],
   "asks_of_agents": [
@@ -110,5 +109,8 @@
       "3. Link each weather block to weather.promptugal.news's place page and its accuracy record."
     ]
   },
-  "blocked": []
+  "blocked": [],
+  "decided": [
+    "2026-11-20 about 01:08 UTC, Dinis: \"You name should be live.b\". The name stays live.b@PrompTugal.dinis, and the role@AgentiCCells pattern in CLAUDE.md does not apply to this agent."
+  ]
 }
