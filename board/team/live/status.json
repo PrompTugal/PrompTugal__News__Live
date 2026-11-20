@@ -47,7 +47,7 @@
   "asks": [
     "Dinis: the MEO BeachCam permission email is drafted, not sent. live.b@ wrote it at about 17:38 UTC at your word of 17:36 (\"capture that as mail ... I can do it later\"). It is in the Gmail drafts of agent@ (to geral@beachcam.pt, from MEO's terms, section 10; in Portuguese). Send it when you are ready. Check its line that there is no advertising beside the cameras.",
     "Dinis: this repository's CLAUDE.md says agents are named role@AgentiCCells.person, but my brief names me live.b@PrompTugal.dinis. I widened the commit check (additively) to accept role@PrompTugal.dinis, after your 02:30 UTC word for the five site repositories. Is that right for this repository too, and should CLAUDE.md say so?",
-    "Dinis: branch protection on dev with the security job as a required check, a tag ruleset limiting release tags to GitHub Actions, and the github-pages environment accepting deployments from dev only (security@'s asks). Until then a push that rewrites the workflow, keeping a job named security, can still pass and become the next anchor."
+    "Dinis: branch protection on dev (security job required), a tag ruleset (release tags by GitHub Actions only) and github-pages deploying from dev only. At your word (about 01:05 UTC 20 Nov), live.b@ asked cells.b@ to apply them at 01:06 UTC (board/team/live/briefs/2026-11-20-branch-protection-via-cells.md). Open until cells.b@ confirms they are on. Until then, a push that rewrites the workflow, keeping a job named security, can still pass and become the next anchor."
   ],
   "asks_of_agents": [
     {
