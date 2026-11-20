@@ -13,10 +13,12 @@ import { fetchJson } from './live/lib.mjs';
 // registry no longer lists while it names a newer version leaves that piece out, never shipped unchecked, and the rest
 // deploys (data.b@'s trap and security@'s ruling, 19 Nov 2026). An unreadable registry leaves the validator's hash check.
 // No full pin is kept in this repository. The registry is the trust root (plain HTTPS to promptugal.news).
-const SRI = (f) => 'sha256-' + createHash('sha256').update(readFileSync(f)).digest('base64');
+// the hash follows the pin's own prefix: sha256 (the sites bar, the time-zone table) or sha384/sha512 (the shared map)
+const ALGS = new Set(['sha256', 'sha384', 'sha512']);
+const SRI = (f, pin = 'sha256-') => { const alg = String(pin).split('-')[0]; return ALGS.has(alg) ? alg + '-' + createHash(alg).update(readFileSync(f)).digest('base64') : null; };
 const tidy = (v) => String(v).replace(/[^0-9A-Za-z.+-]/g, '').slice(0, 20);
 const sitesReg = await fetchJson('https://promptugal.news/api/v1/sites.json', { host: 'promptugal.news', maxBytes: 2_000_000 });
-function checkPiece(name, pin, files) {
+function checkPiece(name, pin, files, { review = false } = {}) {
   if (!sitesReg.ok) { console.log(`${name}: registry not read (${sitesReg.why}); the pinned hash is still checked by the validator`); return ''; }
   // read but unusable: stop (the AppSec post-review, 19 Nov: only a failed read may skip the check)
   const entry = sitesReg.data && typeof sitesReg.data[name] === 'object' && sitesReg.data[name] !== null && !Array.isArray(sitesReg.data[name]) ? sitesReg.data[name] : null;
@@ -35,8 +37,11 @@ function checkPiece(name, pin, files) {
   const pinOf = (file, key) => own(want, key) || own(want.integrity, key) || own(want.integrity, file.split('/').pop());
   for (const [file, key] of Object.entries(files)) {
     const p = pinOf(file, key);
-    if (!p || SRI(file) !== p) { console.error(`${name}: ${file} does not match the registry's pin for ${v}: not deploying`); process.exit(1); }
+    if (!p || SRI(file, p) !== p) { console.error(`${name}: ${file} does not match the registry's pin for ${v}: not deploying`); process.exit(1); }
   }
+  // a piece that must be reviewed (the shared map) ships only when its own version's review starts with "passed"
+  // (events.b@'s pitfall, 20 Nov: the review reads "passed (security@ ...)", so an exact match would keep it off)
+  if (review) { const r = own(listed, 'review'); if (!/^passed(\s|\(|$)/.test(r)) { const off = `${name} ${v} off: its review reads ${JSON.stringify(tidy(r || 'nothing'))}`; console.log(`${off} (left out until security@ passes it)`); return off; } }
   console.log(`${name}: ${v} matches the registry's pins${entry.version !== v ? ` (the registry names ${tidy(entry.version)}: upgrade at the next wake)` : ''}`);
   return '';
 }
@@ -44,14 +49,18 @@ const tzPin = JSON.parse(readFileSync('scripts/vendor/obs-tz/pin.json', 'utf8'))
 const tzStale = checkPiece('obs_tz', tzPin, { [tzPin.file]: 'integrity' });
 const barPin = JSON.parse(readFileSync('scripts/vendor/sites-bar/pin.json', 'utf8'));
 const barOff = checkPiece('bar', barPin, barPin.registry_keys || {});
+const mapPin = JSON.parse(readFileSync('scripts/vendor/ptmap/pin.json', 'utf8'));
+const mapOff = checkPiece('map', mapPin, mapPin.registry_keys || {}, { review: true }) || (sitesReg.ok ? '' : `map ${mapPin.version} off: the registry was not read, so neither its pins nor its review could be checked`);
+if (mapOff && !sitesReg.ok) console.log(mapOff);
 const version = process.env.SITE_VERSION || 'dev';
 rmSync('_site', { recursive: true, force: true });
 cpSync('src', '_site', { recursive: true });
 cpSync('team/keys.json', '_site/keys.json');
 if (tzStale) rmSync('_site/assets/obs/tz-country.json', { force: true });
 if (barOff) rmSync('_site/assets/sites-bar', { recursive: true, force: true });
-const state = await generate('_site', { barOff: !!barOff });
-state.off = [tzStale, barOff].filter(Boolean);
+if (mapOff || !sitesReg.ok) rmSync('_site/assets/ptmap', { recursive: true, force: true });
+const state = await generate('_site', { barOff: !!barOff, mapOff: !!mapOff || !sitesReg.ok, mapV: mapPin.version });
+state.off = [tzStale, barOff, mapOff].filter(Boolean);
 // In CI, a register that could not be read (other than not yet published, 404) fails the build, so the
 // live site keeps its last good pages instead of showing no cameras (the security pre-review, item 5).
 if (process.env.CI && state.register_status !== 200 && state.register_status !== 404) {

@@ -50,7 +50,7 @@ const srcsOf = (cams) => ({ frameSrc: cams.filter((c) => c.decision.embed && c.d
 const viewBox = (c, label) => { const d = c.decision; return `<div class="embed" data-embed-src="${esc(d.url)}" data-embed-host="${esc(d.host)}" data-embed-kind="${esc(d.kind)}" data-embed-prefix="${esc(d.path_prefix)}" data-embed-poster="${esc(d.poster)}" data-embed-title="${esc(c.name)}, ${esc(c.operator.name)}'s own ${d.kind === 'iframe' ? 'player' : d.kind}"><button type="button" class="embed-load">${esc(label)}</button><p class="embed-note">${esc(c.operator.name)}'s own ${d.kind === 'iframe' ? 'player' : d.kind === 'video' ? 'latest clip' : 'latest image'}, loaded from ${esc(d.host)} when you press the button; we never record or store it.</p></div>`; };
 const creditHtml = (c) => `<p class="credit">Live view: ${a(c.page_url || c.operator.url, c.operator.name)} · ${a(c.license.url, c.license.name)}${c.credit ? ` · ${esc(c.credit)}` : ''}. Shown under the operator's terms; this does not suggest the operator's endorsement.</p>`;
 
-function page({ path, title, description, body, frameSrc = [], mediaSrc = [], scripts = [], current = '' }) {
+function page({ path, title, description, body, frameSrc = [], mediaSrc = [], scripts = [], styles = [], current = '' }) {
   const csp = cspFor({ frameSrc, mediaSrc });
   const nav = [['/', 'Map'], ['/places/', 'Places'], ['/cameras/', 'Cameras'], ['/api/', 'API'], ['/how/', 'How'], ['/principles/', 'Principles'], ['/security/', 'Security']]
     .map(([h, t]) => `<a href="${h}"${current === h ? ' aria-current="page"' : ''}>${t}</a>`).join('\n');
@@ -71,7 +71,7 @@ function page({ path, title, description, body, frameSrc = [], mediaSrc = [], sc
 <link rel="stylesheet" href="/assets/brand/brand-tokens.css">
 <link rel="stylesheet" href="/assets/site.css">
 <link rel="stylesheet" href="/assets/live.css">
-${BAR_ON ? `<link rel="stylesheet" href="/assets/sites-bar/${BAR_V}/sites-bar.css">\n` : ''}${[...scripts, ...(BAR_ON ? [`/assets/sites-bar/${BAR_V}/sites-bar.js`] : []), '/assets/obs/obs.js'].map((s) => `<script src="${s}" defer></script>`).join('\n')}
+${styles.map((h) => `<link rel="stylesheet" href="${h}">\n`).join('')}${BAR_ON ? `<link rel="stylesheet" href="/assets/sites-bar/${BAR_V}/sites-bar.css">\n` : ''}${[...scripts, ...(BAR_ON ? [`/assets/sites-bar/${BAR_V}/sites-bar.js`] : []), '/assets/obs/obs.js'].map((s) => `<script src="${s}" defer></script>`).join('\n')}
 </head>
 <body>
 <a class="skip" href="#main">Skip to the content</a>
@@ -419,9 +419,18 @@ export async function generate(outDir = '_site', opts = {}) {
   const areaOf = (c) => AREAS.find((ar) => inBox(ar.box, c.lat, c.lon));
   const maps = AREAS.filter((ar) => ar.id === 'algarve' || watchable.some((c) => areaOf(c) === ar)).map((ar) => mapSvg(ar, places, cameras)).join('\n');
   const london = watchable.filter((c) => areaOf(c)?.id === 'london'), rest = watchable.filter((c) => areaOf(c)?.id !== 'london');
-  write('index.html', page({ path: '/', current: '/', ...srcsOf(watchable), title: 'PrompTugal.news Live: public cameras in the places we cover', description: 'A map of the public cameras that public bodies and operators share in the places PrompTugal.news covers: press one to watch it live in the operator\'s own player, never recorded.', scripts: ['/assets/live.js'],
+  // The shared map (designer@'s ptmap, Dinis's word of 19 Nov about 17:40 UTC: Portugal big, London small): drawn in the
+  // browser from the places with a point of their own; n counts every camera there, links included. Off when the build
+  // switched it off (registry, pin or review). Brussels is left out: live has no EU data.
+  const MAP_ON = !opts.mapOff, MAP_V = String(opts.mapV || '').replace(/[^0-9.]/g, '');
+  const perPlace = (id) => cameras.filter((c) => c.place === id).length;
+  // only places inside ptmap's own box, mainland Portugal (the post-review)
+  const mapPlaces = places.filter((p) => typeof p.lat === 'number' && typeof p.lon === 'number' && Number.isFinite(p.lat) && Number.isFinite(p.lon) && p.lon >= -9.65 && p.lon <= -6.1 && p.lat >= 36.85 && p.lat <= 42.2).map((p) => ({ id: String(p.id), name: String(p.name).slice(0, 80), at: [p.lon, p.lat], href: `/places/${p.id}/`, n: perPlace(p.id) }));
+  const overview = MAP_ON && MAP_V ? `<figure class="map ptmap-fig"><p class="map-title">Portugal, with London beside it</p><div id="ptmap" data-places="${esc(JSON.stringify(mapPlaces))}"${london.length ? ` data-london="/#map-london" data-london-n="${london.length}"` : ''}><p class="muted">The map of Portugal needs JavaScript; the maps below work without it.</p></div><figcaption>The places we cover, each sized by its number of cameras (to watch or to link to); press one for its page. The box is London: press it for the London map. The shared PrompTugal.news map, ptmap ${esc(MAP_V)}, by designer@. Outline: Natural Earth (public domain), via world-atlas (ISC; its notice is in the map's file).</figcaption></figure>` : '';
+  write('index.html', page({ path: '/', current: '/', ...srcsOf(watchable), title: 'PrompTugal.news Live: public cameras in the places we cover', description: 'A map of the public cameras that public bodies and operators share in the places PrompTugal.news covers: press one to watch it live in the operator\'s own player, never recorded.', scripts: [...(overview ? [`/assets/ptmap/${MAP_V}/ptmap.js`] : []), '/assets/live.js'], styles: overview ? [`/assets/ptmap/${MAP_V}/ptmap.css`] : [],
     body: `<h1>Public cameras in the places we cover</h1>
 ${intro}
+${overview}
 <section id="viewer" class="viewer" aria-live="polite" hidden></section>
 ${maps}
 <h2>Cameras you can watch here</h2>

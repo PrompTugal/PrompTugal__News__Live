@@ -1,7 +1,7 @@
 {
   "agent": "live.b@PrompTugal.dinis",
   "site": "https://live.promptugal.news",
-  "updated": "2026-11-19T19:22Z",
+  "updated": "2026-11-20T08:30Z",
   "state": "sites bar 1.2.1; 889 TfL JamCams to watch; 22 Algarve cameras as links (hollow on the map); London as an inset; controls 1 to 10 in the CI security job; observability on",
   "brief": "conductor.b@PrompTugal.dinis at Dinis's word, 18 Nov 2026 (Dinis, about 17:30 UTC: a site 'to list and show the live video feeds of public cameras that exist in the regions/cities we cover ... with the data, location and other data/stats captured by the data site/team')",
   "inner_passes": {
@@ -12,6 +12,7 @@
     "wake_3": "opening conductor and security pre-review (Sonnet, one sub-agent): fixed template, checked integers and coords, PNG record; AppSec post-review: clean, 1 low hardening taken; closing conductor: debrief brought up to date"
   },
   "done": [
+    "2026-11-20 08:08 UTC wake: the shared map, ptmap 1.0.2, vendored and pinned, with a review gate in the build; the home page opens with Portugal big, Lisbon on it and London beside it.",
     "2026-11-19 19:08 UTC wake: control 10, no symlinks, in the CI security job, with the pre-review's hardening; on the map, the 22 Algarve link-only cameras as hollow squares and London as an inset. AppSec post-review: 1 medium, 3 low, all fixed; 77 test cases.",
     "2026-11-19 16:30 to 16:45 UTC: conductor.b@'s pitfalls fixed in ee89ae3 (pushed git attributes off with GIT_ATTR_SOURCE, git 2.42 or later; bash -n on every run block; the leak scan reads the tree as pushed, from the post-review's 1 medium). Twice-a-day wakes (Dinis, about 16:30, relayed): stale marks now 13 hours; the next wake is 19:08 Lisbon.",
     "2026-11-19 16:12 UTC wake: AppSec review (Sonnet) of the seven CI hardening releases since 14:00 (362ba89 to 0741a59): 2 high (a pushed _site symlink before the download; a pushed workflow becoming the anchor), 1 medium (a manual run on another branch could deploy), 3 low; the high and medium fixed, the workflow-rewrite risk narrowed (the anchor run must have passed its security job) and left to branch protection.",
@@ -39,7 +40,7 @@
     "2026-11-19 01:36 UTC: London camera uptime from data.b@'s per-place history (read once per place)"
   ],
   "next": [
-    "Next (08:08 Lisbon wake): the map of the whole of Portugal through designer@'s shared map, ptmap 1.0.2, in place of 1.0.0 or 1.0.1. It draws mainland Portugal big, with London and Brussels as small linked insets (spec board/spec-the-shared-map.md on promptugal.news). Vendor it from the repository (PrompTugal__News__Website design/shared-map/v1.0.2/), never from promptugal.news. Check it at build against the registry's pins (map.versions in https://promptugal.news/api/v1/sites.json, v0.1.1924, dev@'s a81b20325; review \"passed (security@ 168c14fc5)\", which live.b@ read at 20:08 UTC). Load it with script-src 'self'. The full ISC notice for its world-atlas outline is in its header (rights@'s R12, 083881123); keep it there and record the source. Live's own camera squares (filled, and hollow for links) stay on top. Brussels stays off until live has EU data. Pitfalls (events.b@'s 5bf4a93, via conductor.b@ 20:22 UTC): (1) the review gate accepts a review that starts with \"passed\" (it reads \"passed (security@ ...)\"), checked on that version's own entry under map.versions; anything else keeps the map off. (2) No integrity= attributes on the pages, since the sha384 strings trip the leak scan's entropy rule. As with the sites bar, the build checks the vendored bytes against the registry's pins, and pin.json keeps a 40-hex prefix. The scan is not weakened.",
+    "Next: move to ptmap 1.1 once it is listed (a finer outline, and the islands as insets). The places' coordinates can come from ontologist@'s places registry once it carries an \"at\" for each place. Brussels comes in once live has EU data.",
     "The route page moved to SovereignWebsite (Dinis, about 17:41 UTC: google-maps on the SovereignWebsite domain). Live's part: keep /api/v1/cameras.json stable, and answer that team's questions about it.",
     "Review each new register entry at every wake; add an operator host to src/data/operator-hosts.json only after reading that operator's terms",
     "Predictions: keep data/predictions/predictions.jsonl (append-only JSON Lines: prediction lines and outcome lines, the first form kept as shown, any correction beside the original), in the library's form (library.promptugal.news/predictions/form/, /api/v1/predictions/form.json; library.b@ 8f8117b). When the first file exists, tell library.b@ the repo's name; it imports it as one PRED series. Keep and check our own as well."
@@ -111,6 +112,7 @@
   },
   "blocked": [],
   "decided": [
+    "2026-11-20 08:08 wake, live.b@: ptmap draws places, not cameras, so Live's camera squares (filled to watch, hollow for links) stay on the detailed Algarve and London maps below the Portugal map. The earlier plan said 'on top'.",
     "2026-11-20 about 01:06 UTC, Dinis: \"You name should be live.b\". The name stays live.b@PrompTugal.dinis, and the role@AgentiCCells pattern in CLAUDE.md does not apply to this agent."
   ]
 }

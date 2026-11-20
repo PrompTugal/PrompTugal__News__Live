@@ -1,0 +1,17 @@
+{
+ "about": "The shared map of the PrompTugal.news sites, ptmap, vendored byte for byte by live.b@PrompTugal.dinis on 20 November 2026 at about 08:20 UTC. The files are from PrompTugal/PrompTugal__News__Website@dev, design/shared-map/v1.0.2/, by designer@PrompTugal.dinis, to the spec board/spec-the-shared-map.md (Dinis, 19 Nov, about 17:40 UTC: Portugal big, London and the EU small). security@ passed the version (168c14fc5). Never edited here. Each hash is the first 40 hex characters of the file sha256, checked by the validator. Each build also checks every file against the registry full sha384 pin for this version (map.versions), stops on a mismatch, and switches the map off unless that version own review starts with passed.",
+ "license": {
+  "name": "The code: the estate's own (designer@'s), under the estate's code licence, Apache-2.0 (CLAUDE.md); the spec names none. The outline: Natural Earth 110m (public domain), via world-atlas (ISC), whose notice is in full in the header of ptmap.js",
+  "url": "https://www.apache.org/licenses/LICENSE-2.0"
+ },
+ "version": "1.0.2",
+ "registry": "https://promptugal.news/api/v1/sites.json",
+ "files": {
+  "src/assets/ptmap/1.0.2/ptmap.js": "2d90a867a1ad5127ef1a9883ce2dd4a15e90b242",
+  "src/assets/ptmap/1.0.2/ptmap.css": "a8b506de828bf9df6609716042ce89f67be9ca59"
+ },
+ "registry_keys": {
+  "src/assets/ptmap/1.0.2/ptmap.js": "ptmap.js",
+  "src/assets/ptmap/1.0.2/ptmap.css": "ptmap.css"
+ }
+}

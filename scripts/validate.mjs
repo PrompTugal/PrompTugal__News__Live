@@ -84,7 +84,10 @@ for (const f of files) {
     }
     if (/data-embed-src="(?!https:\/\/)/.test(s)) fail(`${f}: click-to-load URL not https`);
   }
-  if (f.endsWith('.js') && /\b(innerHTML|outerHTML|insertAdjacentHTML|document\.write|eval\s*\(|new Function)\b/.test(s)) fail(`${f}: unsafe DOM or eval API`);
+  // a block comment that opens at the file's first byte (a vendored file's licence header, such as ptmap's "no innerHTML")
+  // ends at the first */ and can hold no code, so it alone is left out of this scan; the rest of the file is scanned
+  const code = f.endsWith('.js') && s.startsWith('/*') && s.indexOf('*/') > 0 ? s.slice(s.indexOf('*/') + 2) : s;
+  if (f.endsWith('.js') && /\b(innerHTML|outerHTML|insertAdjacentHTML|document\.write|eval\s*\(|new Function)\b/.test(code)) fail(`${f}: unsafe DOM or eval API`);
 }
 // /api/v1/views.json (the maps' viewer): every view https, never from our own sites, under its reviewed path.
 if (existsSync('_site/api/v1/views.json')) {
@@ -113,6 +116,17 @@ try {
     if (!got.startsWith(h)) fail(`${file}: differs from its pinned sites bar ${pin.version} hash`);
   }
 } catch (e) { fail(`scripts/vendor/sites-bar/pin.json: ${e.message}`); }
+// The vendored shared map (scripts/vendor/ptmap/pin.json's version), the same way: every file matches its pinned hash.
+try {
+  const pin = JSON.parse(readFileSync('scripts/vendor/ptmap/pin.json', 'utf8'));
+  const fk = Object.keys(pin.files).sort().join('|'), rk = Object.keys(pin.registry_keys || {}).sort().join('|');
+  if (!fk || fk !== rk) fail('scripts/vendor/ptmap/pin.json: registry_keys must name exactly the files in files');
+  for (const [file, h] of Object.entries(pin.files)) {
+    if (!/^[0-9a-f]{40}$/.test(h)) { fail(`${file}: pinned hash is not 40 hex characters`); continue; }
+    const got = existsSync(file) ? createHash('sha256').update(readFileSync(file)).digest('hex') : '';
+    if (!got.startsWith(h)) fail(`${file}: differs from its pinned ptmap ${pin.version} hash`);
+  }
+} catch (e) { fail(`scripts/vendor/ptmap/pin.json: ${e.message}`); }
 // The sites-bar preview (live.b@, 2026-11-18): the SVG holds no script or external reference; the PNG is the recorded one.
 if (existsSync('_site/preview.svg')) {
   const v = readFileSync('_site/preview.svg', 'utf8');

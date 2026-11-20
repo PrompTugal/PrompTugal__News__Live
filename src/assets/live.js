@@ -69,6 +69,21 @@
     viewer.hidden = false;
     viewer.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
+  // The shared map (ptmap, vendored and pinned): Portugal with our places, London as a small linked box. Only plain
+  // fields go in; ptmap itself sets text with textContent and keeps only https links to promptugal.news hosts.
+  try {
+    var pm = document.getElementById('ptmap');
+    if (pm && window.PTMap && typeof window.PTMap.render === 'function') {
+      var raw = JSON.parse(pm.getAttribute('data-places') || '[]'), list = [];
+      (Array.isArray(raw) ? raw.slice(0, 400) : []).forEach(function (p) {
+        if (!p || typeof p.id !== 'string' || !/^[a-z0-9][a-z0-9-]{0,63}$/.test(p.id) || !Array.isArray(p.at) || typeof p.at[0] !== 'number' || typeof p.at[1] !== 'number') return;
+        if (!(p.at[0] >= -9.65 && p.at[0] <= -6.1 && p.at[1] >= 36.85 && p.at[1] <= 42.2)) return; // mainland Portugal only, ptmap's box
+        list.push({ id: p.id, name: String(p.name || p.id).slice(0, 80), at: [p.at[0], p.at[1]], href: '/places/' + p.id + '/', n: Math.max(0, Math.min(999, Number(p.n) || 0)) });
+      });
+      var ln = pm.getAttribute('data-london');
+      window.PTMap.render(pm, { places: list, london: ln === '/#map-london' ? { href: ln } : null, eu: null, label: 'Portugal: the places PrompTugal.news Live covers, with London beside it' });
+    }
+  } catch (e) {}
   Array.prototype.forEach.call(document.querySelectorAll('a.m-cam-link[data-view]'), function (link) {
     link.addEventListener('click', function (ev) {
       var id = link.getAttribute('data-view');
