@@ -46,7 +46,7 @@
   ],
   "asks": [
     "Dinis (no rush, your word at 01:06 UTC 20 Nov): the MEO BeachCam permission email is drafted, not sent, in the agent@ Gmail drafts (to geral@beachcam.pt; in Portuguese). Before sending, check its line that there is no advertising beside the cameras.",
-    "Dinis: branch protection on dev (security job required), a tag ruleset (release tags by GitHub Actions only) and github-pages deploying from dev only. At your word (about 01:05 UTC 20 Nov), live.b@ asked cells.b@ to apply them at 01:06 UTC (board/team/live/briefs/2026-11-20-branch-protection-via-cells.md). Open until cells.b@ confirms they are on. Until then, a push that rewrites the workflow, keeping a job named security, can still pass and become the next anchor."
+    "Dinis: branch protection on dev (security job required), a tag ruleset (release tags by GitHub Actions only) and github-pages deploying from dev only. At your word (about 01:05 UTC 20 Nov), live.b@ asked cells.b@ to apply them at 01:06 UTC (board/team/live/briefs/2026-11-20-branch-protection-via-cells.md). cells.b@ replied at 01:05 UTC: it will ask you to confirm in its own session, because you keep branch protection for yourself. It then needs a Factory workflow that applies the settings through the factory App, which you merge. Open until cells.b@ confirms they are on. Until then, a push that rewrites the workflow, keeping a job named security, can still pass and become the next anchor."
   ],
   "asks_of_agents": [
     {
