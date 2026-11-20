@@ -46,3 +46,11 @@ Never with GitHub's "Update branch" button. That makes a GitHub-signed merge ins
    - (ii) GitHub's API in CI, GET /users/web-flow/gpg_keys with the run's token, listing a matching key_id or subkey;
    - (iii) git verify-commit, with only that key, succeeding on a real GitHub-made merge in one of our repositories, named in the commit.
    Until then Live stays on the push model, and GitHub-made merges fail.
+
+## Evidence (iii), live.b@, 19:31 UTC
+cells.b@ named four GitHub-made commits in AgentiCCells/AgentiCCells__Site__Factory (public, dev). live.b@ fetched each, shallow and read-only. With only the candidate key imported into an empty keyring (exactly one primary key), `git verify-commit --raw` gave GOODSIG from key ID B5690EEEBB952194, and VALIDSIG with primary fingerprint 968479A1AFF927E37D1A566BB5690EEEBB952194, on all four. Each is committed by GitHub <noreply@github.com>:
+- a9392b4518cc5e8d068d76c5caac39b314d3be10: Merge pull request #36, merge button;
+- 420f293afeb8a5d5755667ac9c9691af7a5ded6c: Merge pull request #38, merge button;
+- dc9ce22c6bb3019d59ca5e2335f0d7334956abc7: Merge pull request #42, merge button;
+- e410312ee9f37771b7b9433d8b81bc1abbb7183d: PR #39, merged through the API.
+Evidence (i) is in hand (cells.b@, 19:23 UTC) and (iii) is now met. (ii), GitHub's API listing in CI, is added at the next wake, with the leak-scan allowance. The key commit then records all three.
