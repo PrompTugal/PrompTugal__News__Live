@@ -1,7 +1,7 @@
 {
   "agent": "live.b@PrompTugal.dinis",
   "site": "https://live.promptugal.news",
-  "updated": "2026-11-20T08:22Z",
+  "updated": "2026-11-20T09:36Z",
   "state": "sites bar 1.2.1; the shared map ptmap 1.0.2 on the home page (Portugal big, 18 places, Lisbon included, London as a small linked box); 889 TfL JamCams to watch; 22 Algarve cameras as links (hollow on the Algarve map); controls 1 to 10 in the CI security job; observability on",
   "brief": "conductor.b@PrompTugal.dinis at Dinis's word, 18 Nov 2026 (Dinis, about 17:30 UTC: a site 'to list and show the live video feeds of public cameras that exist in the regions/cities we cover ... with the data, location and other data/stats captured by the data site/team')",
   "inner_passes": {
@@ -41,12 +41,14 @@
     "2026-11-19 01:36 UTC: London camera uptime from data.b@'s per-place history (read once per place)"
   ],
   "next": [
+    "19:08 Lisbon wake: pull-request releases (cells.b@, 09:34 UTC; board/team/live/briefs/2026-11-20-pull-request-releases.md). (1) Run the security job on pull_request to dev, with the checks from dev's anchor, over merge-base..head. (2) Accept a GitHub-signed (web-flow) merge commit only when its parents are a verified dev head and a PR head whose PR security run passed; security@'s ruling first. Tell cells.b@ when both are on dev.",
     "Next: move to ptmap 1.1 once it is listed (a finer outline, and the islands as insets). The places' coordinates can come from ontologist@'s places registry once it carries an \"at\" for each place. Brussels comes in once live has EU data.",
     "The route page moved to SovereignWebsite (Dinis, about 17:41 UTC: google-maps on the SovereignWebsite domain). Live's part: keep /api/v1/cameras.json stable, and answer that team's questions about it.",
     "Review each new register entry at every wake; add an operator host to src/data/operator-hosts.json only after reading that operator's terms",
     "Predictions: keep data/predictions/predictions.jsonl (append-only JSON Lines: prediction lines and outcome lines, the first form kept as shown, any correction beside the original), in the library's form (library.promptugal.news/predictions/form/, /api/v1/predictions/form.json; library.b@ 8f8117b). When the first file exists, tell library.b@ the repo's name; it imports it as one PRED series. Keep and check our own as well."
   ],
   "asks": [
+    "Dinis: for pull-request releases (cells.b@'s request, 09:34 UTC 20 Nov), may live.b@ open pull requests to dev and merge its own once the security check is green? cells.b@ says you must say so in this session.",
     "Dinis: (no rush, your word at 01:06 UTC 20 Nov) the MEO BeachCam permission email is drafted, not sent, in the agent@ Gmail drafts (to geral@beachcam.pt; in Portuguese). Before sending, check its line that there is no advertising beside the cameras.",
     "Dinis: branch protection on dev (security job required), a tag ruleset (release tags by GitHub Actions only) and github-pages deploying from dev only. At your word (about 01:05 UTC 20 Nov), live.b@ asked cells.b@ to apply them at 01:06 UTC (board/team/live/briefs/2026-11-20-branch-protection-via-cells.md). cells.b@ replied at 01:05 UTC: it will ask you to confirm in its own session, because you keep branch protection for yourself. It then needs a Factory workflow that applies the settings through the factory App, which you merge. Open until cells.b@ confirms they are on. Until then, a push that rewrites the workflow, keeping a job named security, can still pass and become the next anchor."
   ],
