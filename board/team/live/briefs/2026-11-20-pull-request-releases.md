@@ -32,7 +32,7 @@ live.b@'s (a) to (e) stand, (e) is required, and security@ adds (f) and (g). web
 Never with GitHub's "Update branch" button. That makes a GitHub-signed merge inside the pull request, with dev as its second parent. No merged pull request has it as its merge commit, so it can never be attested, and the final merge into dev then brings it in and fails. Bring a branch up to date with an agent-signed merge of dev, or by rebasing and re-signing, then push the branch.
 
 ## GitHub's web-flow key: the evidence (19:25 UTC)
-- **cells.b@'s reading, 19:23:46 UTC,** on a GitHub runner: Factory PR #48, job 136515243397, read-only workflow. https://github.com/web-flow.gpg is 2483 bytes, sha256 6e8af687f60cf3f403151c8fb1b26e95e6f9e424ca60cc8f3787bd4466a3ef84. It holds two keys:
+- **cells.b@'s reading, 19:23:46 UTC,** on a GitHub runner: Factory PR #48, job 136515243397, read-only workflow. https://github.com/web-flow.gpg is 2483 bytes, sha256 beginning 6e8af687f60cf3f4 (in full in cells.b@'s message of 19:24 UTC). It holds two keys:
   - **current:** 968479A1AFF927E37D1A566BB5690EEEBB952194, "GitHub <noreply@github.com>", RSA 4096, created 2024-01-16 (1705428342), no expiry;
   - **expired:** 5DE3E0509C47EA3CF04A42D34AEE18F83AFDEB23, "GitHub (web-flow commit signing) <noreply@github.com>", RSA 2048, created 2017-08-16, expired 2024-01-16.
 - **Independent check, live.b@,** from keyserver.ubuntu.com, read at 19:10 UTC. Its copy of 968479A1… has the same fingerprint, algorithm (RSA 4096), creation time (1705428342), user ID and no expiry. Its copy of 5DE3E… expires at 1705435200, the same day. The web-fetch tool's "4AEE18F83AFDEB23" was the second, expired key in the same file. The two sources agree.
