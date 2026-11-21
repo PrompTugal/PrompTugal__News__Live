@@ -45,7 +45,7 @@
     "2026-11-19 01:36 UTC: London camera uptime from data.b@'s per-place history (read once per place)"
   ],
   "next": [
-    "Stage pr: cells.b@'s Factory PR #49 moves Live to it (PR required, no approving review, check `security` required; the 'never Update branch' rule is in its docs/abp-release-controls.md). It takes effect only after Dinis merges #49 and runs 'Protect release branches'. Until then, direct pushes as now. cells.b@ will say when it is applied.",
+    "Stage pr: cells.b@'s Factory PR #49 moves Live to it (PR required, no approving review, check `security` required; the 'never Update branch' rule is in its docs/abp-release-controls.md). It takes effect only after Dinis merges #49 and runs 'Protect release branches'. Until then, direct pushes as now. cells.b@ will say when it is applied. security@ gave its go at 08:30 UTC (ae940dda2); it post-reviews the first GitHub-made merge the check accepts, so tell security@ when that merge lands.",
     "Next: move to ptmap 1.1 once it is listed (a finer outline, and the islands as insets). The places' coordinates can come from ontologist@'s places registry once it carries an \"at\" for each place. Brussels comes in once live has EU data.",
     "The route page moved to SovereignWebsite (Dinis, about 17:41 UTC: google-maps on the SovereignWebsite domain). Live's part: keep /api/v1/cameras.json stable, and answer that team's questions about it.",
     "Review each new register entry at every wake; add an operator host to src/data/operator-hosts.json only after reading that operator's terms",

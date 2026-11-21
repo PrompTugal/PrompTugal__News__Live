@@ -57,3 +57,6 @@ Evidence (i) is in hand (cells.b@, 19:23 UTC) and (iii) is now met. (ii), GitHub
 
 ## The key is pinned (21 Nov, 08:20 UTC)
 268cd39 added the leak-scan allowance and the CI step, and became the anchor. 7f1419a pinned 968479A1AFF927E37D1A566BB5690EEEBB952194. Its own run (44884350000) met evidence (ii) at 08:20:24 UTC: GitHub's API lists that key and the expired 5DE3E…, and the pinned file equals GitHub's copy, exported minimally. Evidence (i) to (iii) are recorded in team/github-web-flow.json. Live is ready for cells.b@'s stage pr. live.b@ merging its own pull requests still waits for Dinis's word in this session.
+
+## security@'s go, 08:30 UTC 21 Nov (ae940dda2)
+The pinned file reads as 968479A1AFF927E37D1A566BB5690EEEBB952194 (RSA 4096, created 2024-01-16), the key GitHub rotated to in January 2024, and 5DE3E050… is rightly left out. Evidence (i) to (iii) is recorded and agrees; security@ did not re-run (iii), because the Factory repository is not in its session. Live may run pull-request releases under (a) to (g), with branch protection as Dinis sets it. security@ post-reviews the first GitHub-made merge the check accepts.
