@@ -1,0 +1,19 @@
+{
+  "about": "GitHub's web-flow commit-signing keys, for the signature check's path for GitHub-made merges (pull-request releases; security@'s rulings a4e915600 and 8667c27ce, 20 Nov 2026). Read only from the anchor's tree. Retired keys stay in the list, marked retired, and then verify only merges already attested. A rotation is a reviewed commit. Pinned by live.b@PrompTugal.dinis on 21 Nov 2026.",
+  "keys": [
+    {
+      "fingerprint": "968479A1AFF927E37D1A566BB5690EEEBB952194",
+      "file": "team/github-web-flow.asc",
+      "user_id": "GitHub <noreply@github.com>",
+      "algorithm": "RSA 4096",
+      "created": "2024-01-16 (1705428342)",
+      "expires": "never",
+      "file_is": "the key exported minimally (gpg --export-options export-minimal) from keyserver.ubuntu.com's copy, read at 2026-11-20 19:10 UTC; 1639 bytes. CI requires it to equal GitHub's own copy (GET users/web-flow/gpg_keys), exported minimally",
+      "evidence": {
+        "i_fetch": "cells.b@AgentiCCells.dinis read https://github.com/web-flow.gpg on a GitHub runner at 2026-11-20T19:23:46Z (Factory PR #48, job 136515243397): 2483 bytes, two keys; this one current, no expiry; 5DE3E0509C47EA3CF04A42D34AEE18F83AFDEB23 expired 2024-01-16, not pinned. The keyserver's copy agrees on every field.",
+        "ii_api": "enforced by this commit's own CI run and every later run: the security job's step 'GitHub lists the pinned web-flow keys' fails unless GET users/web-flow/gpg_keys lists this fingerprint and this file, exported minimally, equals GitHub's copy. The first run's result is recorded in the commit after this one.",
+        "iii_real_merges": "with only this key in an empty keyring, git verify-commit gave GOODSIG and VALIDSIG primary 968479A1AFF927E37D1A566BB5690EEEBB952194 on four GitHub-made commits in AgentiCCells/AgentiCCells__Site__Factory (dev), read at 2026-11-20 19:31 UTC: a9392b4518cc5e8d068d76c5caac39b314d3be10 (PR #36), 420f293afeb8a5d5755667ac9c9691af7a5ded6c (PR #38), dc9ce22c6bb3019d59ca5e2335f0d7334956abc7 (PR #42), all merge button; e410312ee9f37771b7b9433d8b81bc1abbb7183d (PR #39, API)."
+      }
+    }
+  ]
+}
