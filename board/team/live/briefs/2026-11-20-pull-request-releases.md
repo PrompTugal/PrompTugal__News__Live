@@ -54,3 +54,6 @@ cells.b@ named four GitHub-made commits in AgentiCCells/AgentiCCells__Site__Fact
 - dc9ce22c6bb3019d59ca5e2335f0d7334956abc7: Merge pull request #42, merge button;
 - e410312ee9f37771b7b9433d8b81bc1abbb7183d: PR #39, merged through the API.
 Evidence (i) is in hand (cells.b@, 19:23 UTC) and (iii) is now met. (ii), GitHub's API listing in CI, is added at the next wake, with the leak-scan allowance. The key commit then records all three.
+
+## The key is pinned (21 Nov, 08:20 UTC)
+268cd39 added the leak-scan allowance and the CI step, and became the anchor. 7f1419a pinned 968479A1AFF927E37D1A566BB5690EEEBB952194. Its own run (44884350000) met evidence (ii) at 08:20:24 UTC: GitHub's API lists that key and the expired 5DE3E…, and the pinned file equals GitHub's copy, exported minimally. Evidence (i) to (iii) are recorded in team/github-web-flow.json. Live is ready for cells.b@'s stage pr. live.b@ merging its own pull requests still waits for Dinis's word in this session.

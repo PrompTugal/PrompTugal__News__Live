@@ -1,7 +1,7 @@
 {
   "agent": "live.b@PrompTugal.dinis",
   "site": "https://live.promptugal.news",
-  "updated": "2026-11-20T19:32Z",
+  "updated": "2026-11-21T08:26Z",
   "state": "sites bar 1.2.1; the shared map ptmap 1.0.2 on the home page; 889 TfL JamCams to watch (the register's embeddable count, 18:04 UTC 19 Nov read); 22 Algarve cameras as links; controls 1 to 10 and the pull-request security job in CI; GitHub-made merges fail closed until the web-flow key is pinned; observability on",
   "brief": "conductor.b@PrompTugal.dinis at Dinis's word, 18 Nov 2026 (Dinis, about 17:30 UTC: a site 'to list and show the live video feeds of public cameras that exist in the regions/cities we cover ... with the data, location and other data/stats captured by the data site/team')",
   "inner_passes": {
@@ -11,9 +11,11 @@
     "closing_conductor": "ran (Sonnet), see the commit",
     "wake_3": "opening conductor and security pre-review (Sonnet, one sub-agent): fixed template, checked integers and coords, PNG record; AppSec post-review: clean, 1 low hardening taken; closing conductor: debrief brought up to date",
     "wake_2026_11_20_0808": "opening conductor and security pre-review (Sonnet, one sub-agent): no blockers; its required changes (the hash follows the pin's prefix, a review gate on the version's own entry, the off state wired through, the validator's pin block) were already in the design. AppSec post-review (Sonnet): nothing serious, 3 low fixed (the places filtered to ptmap's box; the review gate takes 'passed' only as a whole word; an unreadable registry recorded as map off). Closing conductor (Sonnet): status brought up to date.",
-    "wake_2026_11_20_1908": "opening conductor and security pre-review (Sonnet): 8 findings, all taken (keys from A, not p1; forks fail rather than skip; (g) tied to this workflow's PR run; attestation from the trusted copy; read-only check and PR permissions; per-PR concurrency; stale base; gpg status parsing). AppSec post-review (Sonnet): 1 high (security skipped, not failed, when the build failed), 2 medium, 2 low, all fixed. Closing conductor (Sonnet, 19:23 UTC): 5 fixes; the time, state, this record and the key claims' sources taken."
+    "wake_2026_11_20_1908": "opening conductor and security pre-review (Sonnet): 8 findings, all taken (keys from A, not p1; forks fail rather than skip; (g) tied to this workflow's PR run; attestation from the trusted copy; read-only check and PR permissions; per-PR concurrency; stale base; gpg status parsing). AppSec post-review (Sonnet): 1 high (security skipped, not failed, when the build failed), 2 medium, 2 low, all fixed. Closing conductor (Sonnet, 19:23 UTC): 5 fixes; the time, state, this record and the key claims' sources taken.",
+    "wake_2026_11_21_0808": "pre-review (Sonnet): the first design's lazy match let anything inside the armoured block go unscanned; packet decoding, size caps, full-fingerprint comparison with GitHub's copy, and reading the json from both trees taken. AppSec post-review (Sonnet): 1 medium (mid-body '=' and opaque packet bodies), 3 low (jq failure part-way, extra primaries, rotation note), all fixed."
   },
   "done": [
+    "2026-11-21 08:08 UTC wake: GitHub's web-flow key pinned in two releases (268cd39, the leak-scan allowance and CI's comparison with GitHub's listed keys; 7f1419a, the key, with security@'s evidence i to iii). Pre-review: a lazy-match hole in the first design, fixed. AppSec post-review: 1 medium (data hidden after a mid-body = or inside packets) and 3 low, fixed. 111 test cases.",
     "2026-11-20 19:08 UTC wake: pull-request releases, items 1 and 2: the security job runs on pull requests into dev, and GitHub-made merges are checked under security@'s a to g. No web-flow key is pinned yet, so they fail closed. 101 test cases.",
     "2026-11-20 08:08 UTC wake: the shared map, ptmap 1.0.2, vendored and pinned, with a review gate in the build; the home page opens with Portugal big, Lisbon on it and London beside it. AppSec post-review: 3 low, fixed.",
     "2026-11-19 19:08 UTC wake: control 10, no symlinks, in the CI security job, with the pre-review's hardening; on the map, the 22 Algarve link-only cameras as hollow squares and London as an inset. AppSec post-review: 1 medium, 3 low, all fixed; 77 test cases.",
@@ -43,7 +45,7 @@
     "2026-11-19 01:36 UTC: London camera uptime from data.b@'s per-place history (read once per place)"
   ],
   "next": [
-    "Pull-request releases, the key (security@'s 8667c27ce). Next wake: (1) the leak-scan allowance for team/github-web-flow.asc, exactly one armored public key block, with security@'s four tests, to reach the anchor first. (2) A CI step that records GET /users/web-flow/gpg_keys (with the run's token) and requires the key_id of 968479A1AFF927E37D1A566BB5690EEEBB952194. (3) Met at 19:31 UTC: four GitHub-made commits in the Factory repository verify with only that key (see the brief). Then the key commit records (i) to (iii), and cells.b@ is told.",
+    "Stage pr: cells.b@ was told at about 08:25 UTC 21 Nov that Live is ready (the web-flow key pinned in 7f1419a, evidence i to iii met). After the move, Live's agents work through pull requests, once Dinis allows live.b@ to merge its own.",
     "Next: move to ptmap 1.1 once it is listed (a finer outline, and the islands as insets). The places' coordinates can come from ontologist@'s places registry once it carries an \"at\" for each place. Brussels comes in once live has EU data.",
     "The route page moved to SovereignWebsite (Dinis, about 17:41 UTC: google-maps on the SovereignWebsite domain). Live's part: keep /api/v1/cameras.json stable, and answer that team's questions about it.",
     "Review each new register entry at every wake; add an operator host to src/data/operator-hosts.json only after reading that operator's terms",
