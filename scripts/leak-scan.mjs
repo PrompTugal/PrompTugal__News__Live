@@ -51,7 +51,45 @@ const SHAPES = [
   ['SSH public key outside its published field', /\b(?:ssh-ed25519|ssh-rsa|ecdsa-sha2-nistp(?:256|384|521)|sk-ssh-ed25519@openssh\.com|sk-ecdsa-sha2-nistp256@openssh\.com) AAAA[A-Za-z0-9+\/]{16,}/],
 ];
 // A private key header fails everywhere, with no exemption of any kind (security@, 19 Nov 2026).
-const NEVER_ALLOWED = new Set(['private key block']);
+const NEVER_ALLOWED = new Set(['private key block', 'web-flow key file is not exactly one public key block']);
+// GitHub's web-flow signing key (pull-request releases; security@'s ruling 8667c27ce, 21 Nov 2026): allowed in this one
+// file only, and only when the whole file is exactly one armored PGP public key block (an optional checksum line,
+// base64 lines and blank lines inside, LF line ends, nothing before or after). Anything else there fails, never allowed.
+const WEBFLOW_KEY_FILE = 'team/github-web-flow.asc';
+const PGP_PUB = ['PGP', 'PUBLIC', 'KEY', 'BLOCK'].join(' ');
+const WEBFLOW_SHAPE = new RegExp(`^${DASHES}BEGIN ${PGP_PUB}${DASHES}\n\n((?:[A-Za-z0-9+/]{1,76}\n)*[A-Za-z0-9+/]{1,76}={0,2}\n)(=[A-Za-z0-9+/]{4}\n)?${DASHES}END ${PGP_PUB}${DASHES}\n?$`); // padding on the last body line only (the post-review)
+// The packets inside, decoded: only a public key (tag 6), user IDs (13), public subkeys (14) and signatures (2). A secret
+// key or subkey (5, 7), or anything else, fails (the pre-review: a PUBLIC header proves nothing about its packets).
+const WEBFLOW_TAGS = new Set([2, 6, 13, 14]);
+function pgpTagsOk(b64) {
+  const flat = b64.replace(/\n/g, '');
+  let buf; try { buf = Buffer.from(flat, 'base64'); } catch { return false; }
+  // every character decoded: the bytes must re-encode to exactly the text, so nothing hides after a stray '='
+  if (!buf.length || buf.length > 32768 || buf.toString('base64') !== flat) return false;
+  let i = 0, n = 0;
+  while (i < buf.length) {
+    const h = buf[i++]; if (!(h & 0x80)) return false;
+    let tag, len;
+    if (h & 0x40) { // new format
+      tag = h & 0x3f; const o = buf[i++];
+      if (o === undefined) return false;
+      if (o < 192) len = o; else if (o < 224) { if (i >= buf.length) return false; len = ((o - 192) << 8) + buf[i++] + 192; } else if (o === 255) { if (i + 4 > buf.length) return false; len = buf.readUInt32BE(i); i += 4; } else return false; // partial lengths are not used in keys
+    } else { // old format
+      tag = (h >> 2) & 0x0f; const lt = h & 3;
+      if (lt === 0) len = buf[i++]; else if (lt === 1) { if (i + 2 > buf.length) return false; len = buf.readUInt16BE(i); i += 2; } else if (lt === 2) { if (i + 4 > buf.length) return false; len = buf.readUInt32BE(i); i += 4; } else return false;
+      if (len === undefined) return false;
+    }
+    if (!WEBFLOW_TAGS.has(tag) || i + len > buf.length) return false;
+    // each packet's size capped, so no packet body can carry a payload: a key 1100 bytes (RSA 4096 is about 530), a
+    // signature 2048, a user ID 256 bytes of printable text
+    if ((tag === 6 || tag === 14) && len > 1100) return false;
+    if (tag === 2 && len > 2048) return false;
+    if (tag === 13 && (len > 256 || !/^[\x20-\x7e]*$/.test(buf.subarray(i, i + len).toString('latin1')))) return false;
+    if (n === 0 && tag !== 6) return false; // the first packet is the public key itself
+    i += len; n++;
+  }
+  return n > 0;
+}
 
 // sgit vault key without its prefix: {passphrase}:{vault_id}. sgit generates a
 // 24-character lowercase alphanumeric passphrase and an 8-character vault id.
@@ -118,6 +156,13 @@ export function scanText(path, text) {
   const found = [];
   const add = (line, kind) => { if (NEVER_ALLOWED.has(kind) || !allowed(path, kind)) found.push({ line, kind }); };
   let body = text;
+  if (path === WEBFLOW_KEY_FILE) {
+    // the key shapes run on the original text first, so nothing hides inside the block that is then blanked
+    for (const [kind, re] of SHAPES) if (re.test(text)) found.push({ line: 0, kind });
+    const m = WEBFLOW_SHAPE.exec(text);
+    if (!m || text.length > 48000 || text.split(`${DASHES}BEGIN `).length !== 2 || !pgpTagsOk(m[1])) { found.push({ line: 0, kind: 'web-flow key file is not exactly one public key block' }); return found; }
+    return found; // exactly one public key block and nothing else: no line rule applies
+  }
   if (PUBLIC_KEY_FILES(path)) {
     if (/private|passphrase|secret|seed/i.test(text)) add(0, 'public key file mentions a private part');
     // Blank the allowed public key blocks, keeping line numbers.

@@ -239,6 +239,33 @@ const setup = (name, keys = keysWith(entry('a', A))) => { const r = repo(name); 
     const trusted = r.commit('pins a retired key', { key: A, files: ret }); r.g('checkout', '-q', '-b', 'pr'); r.commit('the change', { key: A, files: { 'p.txt': '1' } }); r.g('checkout', '-q', 'main'); const m = ghMerge(r, 'pr');
     expect('(PR) a retired web-flow key does not verify a new merge', run(r, trusted), false, 'not signed by a pinned web-flow key');
     expect('(PR) ... but still verifies a merge attested before (an ancestor of WEBFLOW_SINCE)', run(r, trusted, { WEBFLOW_SINCE: m }), true); }
+  // evidence (ii): the workflow step that requires GitHub's listed web-flow keys to include every pinned one
+  { const yml = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', '.github', 'workflows', 'pages.yml'), 'utf8').split('\n');
+    const at = yml.findIndex((l) => l.startsWith('      - name: GitHub lists the pinned web-flow keys'));
+    const body = []; let inRun = false; for (const l of yml.slice(at + 1)) { if (/^      - /.test(l)) break; if (/^        run: \|/.test(l)) { inRun = true; continue; } if (inRun) body.push(l.replace(/^          /, '')); }
+    const st = join(tmp, 'listed-step.sh'); writeFileSync(st, 'set -e\n' + body.join('\n') + '\n');
+    const bin = join(tmp, 'fakebin-keys'); mkdirSync(bin, { recursive: true });
+    writeFileSync(join(bin, 'gh'), '#!/bin/sh\n[ -n "$FAKE_FAIL" ] && exit 1\nprintf "%s\\n" "$FAKE_RAW"\n', { mode: 0o755 });
+    const listed = (fpr) => Buffer.from(armor(fpr)).toString('base64').replace(/\n/g, '');
+    const runL = (r, anchor, env) => { const rt = join(tmp, 'rtk-' + Math.random().toString(36).slice(2)); mkdirSync(join(rt, 'trusted'), { recursive: true }); writeFileSync(join(rt, 'trusted', 'anchor'), anchor + '\n');
+      return spawnSync('bash', [st], { cwd: r.d, encoding: 'utf8', env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, RUNNER_TEMP: rt, AFTER: r.g('rev-parse', 'HEAD'), GH_TOKEN: 'none', ...env } }); };
+    { const r = setup('keys-listed'); const a0 = r.commit('nothing pinned', { key: A, files: { 'x.txt': '1' } }); r.commit('pins the key', { key: A, files: pinFiles });
+      expect('(ii) a pinned key that GitHub lists passes', runL(r, a0, { FAKE_RAW: listed(WF) }), true, 'listed by GitHub');
+      expect('(ii) a pinned key GitHub does not list fails', runL(r, a0, { FAKE_RAW: listed(OTHER) }), false, "is not among GitHub's web-flow keys");
+      expect('(ii) an unreadable key list fails', runL(r, a0, { FAKE_FAIL: '1' }), false, 'could not be read'); }
+    { const r = setup('keys-mismatch'); const a0 = r.commit('nothing pinned', { key: A, files: { 'x.txt': '1' } }); r.commit('pins a fingerprint with another key file', { key: A, files: { ...pinFiles, 'team/github-web-flow.asc': armor(OTHER) } });
+      expect('(ii) a key file that does not hold the pinned fingerprint fails', runL(r, a0, { FAKE_RAW: listed(WF) }), false, 'holds'); }
+    { const r = setup('keys-removed'); const a0 = r.commit('pins the key', { key: A, files: pinFiles }); rmSync(join(r.d, 'team', 'github-web-flow.json')); r.commit('removes it', { key: A });
+      expect('(ii) removing the pinned keys fails', runL(r, a0, { FAKE_RAW: listed(WF) }), false, 'were removed'); }
+    { const r = setup('keys-a-side'); const a0 = r.commit('pins the key', { key: A, files: pinFiles }); r.commit('a change', { key: A, files: { 'x.txt': '2' } });
+      expect('(ii) a key pinned in the anchor that GitHub no longer lists fails', runL(r, a0, { FAKE_RAW: listed(OTHER) }), false, "is not among GitHub's web-flow keys"); }
+    { const r = setup('keys-malformed'); const a0 = r.commit('nothing pinned', { key: A, files: { 'x.txt': '1' } });
+      r.commit('a valid entry, then a malformed one', { key: A, files: { ...pinFiles, 'team/github-web-flow.json': JSON.stringify({ keys: [{ fingerprint: WF, file: 'team/github-web-flow.asc' }, { fingerprint: [WF], file: 'team/x.asc' }] }) } });
+      expect('(ii) a malformed entry after a valid one fails, never skipped', runL(r, a0, { FAKE_RAW: listed(WF) }), false, 'malformed'); }
+    { const r = setup('keys-empty'); const a0 = r.commit('nothing pinned', { key: A, files: { 'x.txt': '1' } }); r.commit('an empty list', { key: A, files: { ...pinFiles, 'team/github-web-flow.json': JSON.stringify({ keys: [] }) } });
+      expect('(ii) an empty key list fails (jq -e gives nothing: malformed)', runL(r, a0, { FAKE_RAW: listed(WF) }), false, 'malformed'); }
+    { const r = setup('keys-none'); const a0 = r.commit('nothing pinned', { key: A, files: { 'x.txt': '1' } });
+      expect('(ii) with no key pinned anywhere, the step has nothing to do', runL(r, a0, {}), true, 'nothing to compare'); } }
   { const { r, trusted } = mk('wf-swap'); r.g('checkout', '-q', 'pr'); r.commit('swaps in its own key', { key: A, files: { 'team/github-web-flow.json': JSON.stringify({ keys: [{ fingerprint: OTHER, file: 'team/github-web-flow.asc' }] }), 'team/github-web-flow.asc': armor(OTHER) } });
     r.g('checkout', '-q', 'main'); ghMerge(r, 'pr', { key: OTHER }); expect('(PR) a key swapped in by a pushed commit is not used (keys come from the trusted tree)', run(r, trusted), false, 'not signed by a pinned web-flow key'); } }
 // The attestation of GitHub-made merges (f, g), scripts/attest-webflow.sh, with a stand-in for gh

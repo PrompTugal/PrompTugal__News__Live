@@ -272,6 +272,48 @@ jobs:
           unset NODE_OPTIONS; export GIT_NO_REPLACE_OBJECTS=1; export GIT_ATTR_SOURCE=4b825dc642cb6eb9a060e54bf8d69288fbee4904; NODE_BIN="$(command -v node)"; case "$NODE_BIN" in /*) ;; *) exit 1 ;; esac
           export WEBFLOW_KEYS_FROM="$(cat "$RUNNER_TEMP/trusted/anchor")" WEBFLOW_SINCE="$(cat "$RUNNER_TEMP/trusted/range_from")" WEBFLOW_OUT="$RUNNER_TEMP/trusted/webflow.txt"
           "$NODE_BIN" "$RUNNER_TEMP/trusted/check-signatures.mjs" "" "$AFTER"
+      - name: GitHub lists the pinned web-flow keys (security@'s 8667c27ce, evidence ii)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          AFTER: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          unset NODE_OPTIONS; export GIT_NO_REPLACE_OBJECTS=1; export GIT_ATTR_SOURCE=4b825dc642cb6eb9a060e54bf8d69288fbee4904
+          A="$(cat "$RUNNER_TEMP/trusted/anchor")"
+          has() { git cat-file -e "$1:team/github-web-flow.json" 2>/dev/null; }
+          if ! has "$A" && ! has "$AFTER"; then echo "no web-flow key is pinned yet: nothing to compare"; exit 0; fi
+          if has "$A" && ! has "$AFTER"; then echo "the pinned web-flow keys were removed: not deploying" >&2; exit 1; fi
+          export GNUPGHOME="$(mktemp -d)"; trap 'gpgconf --kill all; rm -rf "$GNUPGHOME"; [ -n "${GH_RING:-}" ] && GNUPGHOME="$GH_RING" gpgconf --kill all; rm -rf "${GH_RING:-/nonexistent}"' EXIT
+          # every key GitHub lists for web-flow, as full fingerprints (a 16-character key id is too weak; the pre-review)
+          RAW="$(gh api users/web-flow/gpg_keys --jq '.[] | .raw_key | @base64')" || { echo "GitHub's key list could not be read: not deploying" >&2; exit 1; }
+          [ -n "$RAW" ] || { echo "GitHub lists no web-flow key: not deploying" >&2; exit 1; }
+          LISTED="$(printf '%s\n' "$RAW" | while read -r k; do printf '%s' "$k" | base64 -d | gpg --batch --with-colons --show-keys 2>/dev/null | awk -F: '/^fpr/{print $10}'; done)"
+          [ -n "$LISTED" ] || { echo "GitHub's web-flow keys could not be read as keys: not deploying" >&2; exit 1; }
+          # GitHub's own copies, imported, so each pinned file can be compared with GitHub's copy of the same key
+          GH_RING="$(mktemp -d)"; printf '%s\n' "$RAW" | while read -r k; do printf '%s' "$k" | base64 -d | GNUPGHOME="$GH_RING" gpg --batch --quiet --import 2>/dev/null || true; done
+          echo "GitHub lists these web-flow key fingerprints (primary and subkeys):"; printf '  %s\n' $LISTED
+          for T in "$A" "$AFTER"; do
+            has "$T" || continue
+            n=0
+            ROWS="$(git show "$T:team/github-web-flow.json" | jq -er '.keys[] | [.fingerprint, .file] | @tsv')" || { echo "${T:0:8}: team/github-web-flow.json is malformed" >&2; exit 1; }
+            while IFS=$'\t' read -r fpr file; do
+              n=$((n + 1))
+              printf '%s' "$fpr" | grep -Eq '^[0-9A-F]{40}$' || { echo "${T:0:8}: a malformed fingerprint in team/github-web-flow.json" >&2; exit 1; }
+              printf '%s' "$file" | grep -Eq '^team/[A-Za-z0-9._-]+\.asc$' || { echo "${T:0:8}: a malformed key file name" >&2; exit 1; }
+              printf '%s\n' $LISTED | grep -Fxq "$fpr" || { echo "${T:0:8}: $fpr is not among GitHub's web-flow keys: not deploying" >&2; exit 1; }
+              cols="$(git show "$T:$file" | gpg --batch --with-colons --show-keys 2>/dev/null)"
+              [ "$(printf '%s\n' "$cols" | grep -c '^pub:')" = "1" ] || { echo "${T:0:8}: $file must hold exactly one primary key" >&2; exit 1; }
+              got="$(printf '%s\n' "$cols" | awk -F: '/^fpr/{print $10; exit}')"
+              [ "$got" = "$fpr" ] || { echo "${T:0:8}: $file holds ${got:-no key}, not $fpr: not deploying" >&2; exit 1; }
+              for f in $(printf '%s\n' "$cols" | awk -F: '/^fpr/{print $10}'); do printf '%s\n' $LISTED | grep -Fxq "$f" || { echo "${T:0:8}: $file carries $f, which GitHub does not list" >&2; exit 1; }; done
+              # the file, exported minimally, must be GitHub's own copy exported minimally: nothing extra rides along
+              PIN_RING="$(mktemp -d)"; git show "$T:$file" | GNUPGHOME="$PIN_RING" gpg --batch --quiet --import 2>/dev/null
+              ours="$(GNUPGHOME="$PIN_RING" gpg --batch --export-options export-minimal --export "$fpr" | sha256sum)"; theirs="$(GNUPGHOME="$GH_RING" gpg --batch --export-options export-minimal --export "$fpr" | sha256sum)"
+              GNUPGHOME="$PIN_RING" gpgconf --kill all; rm -rf "$PIN_RING"
+              [ "$ours" = "$theirs" ] || { echo "${T:0:8}: $file, exported minimally, is not GitHub's copy of $fpr: not deploying" >&2; exit 1; }
+              echo "${T:0:8}: $fpr is pinned in $file and listed by GitHub"
+            done <<<"$ROWS"
+            [ "$n" -gt 0 ] || { echo "${T:0:8}: team/github-web-flow.json lists no key" >&2; exit 1; }
+          done
       - name: GitHub-made merges in this push came from green pull requests (the trusted attestation)
         if: github.event_name != 'pull_request'
         env:
